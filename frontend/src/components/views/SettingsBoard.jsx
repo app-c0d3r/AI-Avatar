@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectOption } from '@/components/ui/select'
+import AppearanceSettings from './AppearanceSettings'
 
 const PROVIDERS = [
   { value: 'openrouter', label: 'OpenRouter' },
@@ -72,7 +73,7 @@ export default function SettingsBoard() {
   const modelOptions = PROVIDER_DEFAULTS[llmProvider].models || []
 
   return (
-    <div className="h-full p-6">
+    <div className="h-full overflow-y-auto p-6">
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
@@ -164,6 +165,10 @@ export default function SettingsBoard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Appearance & Customization */}
+        <AppearanceSettings />
+
       </div>
     </div>
   )
