@@ -3,9 +3,9 @@
 
 export default function Settings() {
   return (
-    <div className="settings">
+    <div className="settings" style={{ padding: '1rem', background: 'white', borderRadius: '8px' }}>
       <h2>Settings</h2>
-      {/* TODO: Add settings content */}
+      <p>Settings panel coming soon...</p>
     </div>
   )
 }

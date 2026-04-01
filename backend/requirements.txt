@@ -1,10 +1,2 @@
-# FastAPI Backend Dependencies
-# Phase 01 - Placeholder
-
-fastapi
-uvicorn
-python-dotenv
-
-# TODO: Add LLM integration packages
-# - openrouter / ollama client
-# - httpx for async requests
+fastapi==0.115.0
+uvicorn[standard]==0.30.6

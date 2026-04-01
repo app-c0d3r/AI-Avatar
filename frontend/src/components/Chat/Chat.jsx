@@ -3,9 +3,9 @@
 
 export default function Chat() {
   return (
-    <div className="chat">
+    <div className="chat" style={{ padding: '1rem', background: 'white', borderRadius: '8px' }}>
       <h2>Chat</h2>
-      {/* TODO: Add chat UI */}
+      <p>Chat interface coming soon...</p>
     </div>
   )
 }
