@@ -1,0 +1,23 @@
+# Docker Compose Blueprint - Phase 01
+# TODO: Implement actual service configurations
+
+services:
+  frontend:
+    # React + Vite development server
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+  backend:
+    # FastAPI + Uvicorn
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}

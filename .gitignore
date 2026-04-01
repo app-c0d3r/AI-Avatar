@@ -17,6 +17,10 @@ GEMINI.md
 RULES.md
 .gemini/*
 
+# Qwen Code lokale Einstellungen
+QWEN.md
+.qwen/*
+
 # Roadmap
 /docs/roadmap/*
 
