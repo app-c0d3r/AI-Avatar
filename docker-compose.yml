@@ -1,3 +1,4 @@
+name: AI-Avatar
 services:
   frontend:
     build:
