@@ -4,11 +4,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+const PROVIDER_DEFAULTS = {
+  openrouter: {
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'meta-llama/llama-3-8b-instruct:free'
+  },
+  ollama: {
+    baseUrl: 'http://host.docker.internal:11434/v1',
+    model: 'llama3'
+  }
+}
+
 export default function SettingsBoard() {
   const { avatarDisplayMode, toggleAvatarMode } = useAvatar()
   const [llmProvider, setLlmProvider] = useLocalStorage('mapa-llmProvider', 'openrouter')
-  const [modelName, setModelName] = useLocalStorage('mapa-modelName', 'meta-llama/llama-3-8b-instruct:free')
+  const [modelName, setModelName] = useLocalStorage('mapa-modelName', PROVIDER_DEFAULTS.openrouter.model)
   const [apiKey, setApiKey] = useLocalStorage('mapa-apiKey', '')
+  const [baseUrl, setBaseUrl] = useLocalStorage('mapa-baseUrl', PROVIDER_DEFAULTS.openrouter.baseUrl)
+
+  const handleProviderChange = (provider) => {
+    setLlmProvider(provider)
+    setModelName(PROVIDER_DEFAULTS[provider].model)
+    setBaseUrl(PROVIDER_DEFAULTS[provider].baseUrl)
+  }
 
   return (
     <div className="h-full p-6">
@@ -30,18 +48,29 @@ export default function SettingsBoard() {
                 <Button
                   variant={llmProvider === 'openrouter' ? 'default' : 'outline'}
                   className="flex-1"
-                  onClick={() => setLlmProvider('openrouter')}
+                  onClick={() => handleProviderChange('openrouter')}
                 >
                   OpenRouter
                 </Button>
                 <Button
                   variant={llmProvider === 'ollama' ? 'default' : 'outline'}
                   className="flex-1"
-                  onClick={() => setLlmProvider('ollama')}
+                  onClick={() => handleProviderChange('ollama')}
                 >
                   Ollama (Local)
                 </Button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Base URL</label>
+              <Input
+                placeholder="https://openrouter.ai/api/v1"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave as default for selected provider. Required for Ollama.
+              </p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Model</label>
@@ -66,23 +95,17 @@ export default function SettingsBoard() {
         {/* Voice & Audio */}
         <Card>
           <CardHeader>
-            <CardTitle>Voice & Audio</CardTitle>
+            <CardTitle>Studio</CardTitle>
             <CardDescription>
-              Speech-to-text and text-to-speech settings
+              Avatar Studio settings
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">STT Language</label>
-              <Input placeholder="e.g., en-US, de-DE" />
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Avatar configuration coming in Phase 04
+              </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">TTS Voice</label>
-              <Input placeholder="Select voice..." />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Voice features coming in Phase 05
-            </p>
           </CardContent>
         </Card>
 

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AvatarProvider } from '@/context/AvatarContext'
 import ChatInterface from '@/components/views/ChatInterface'
@@ -6,18 +5,9 @@ import AvatarStudio from '@/components/views/AvatarStudio'
 import UserProfile from '@/components/views/UserProfile'
 import SettingsBoard from '@/components/views/SettingsBoard'
 
-const TABS = [
-  { id: 'chat', label: 'Chat' },
-  { id: 'studio', label: 'Studio' },
-  { id: 'profile', label: 'Profile' },
-  { id: 'settings', label: 'Settings' },
-]
-
 function LayoutContent() {
-  const [activeTab, setActiveTab] = useState('chat')
-
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Left Sidebar - Placeholder only (no navigation) */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30">
         <div className="p-4">
@@ -34,41 +24,44 @@ function LayoutContent() {
         </div>
       </aside>
 
-      {/* Right Column - Main Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Tab Navigation */}
-        <header className="border-b bg-muted/30">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      {/* Main Content Column */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
+        <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
+          {/* Tab Navigation */}
+          <div className="border-b p-2">
             <TabsList className="w-full justify-start rounded-none h-14 bg-transparent p-2">
-              {TABS.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="data-[state=active]:bg-background rounded-md"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
+              <TabsTrigger value="chat" className="data-[state=active]:bg-background rounded-md">
+                Chat
+              </TabsTrigger>
+              <TabsTrigger value="studio" className="data-[state=active]:bg-background rounded-md">
+                Studio
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="data-[state=active]:bg-background rounded-md">
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-background rounded-md">
+                Settings
+              </TabsTrigger>
             </TabsList>
+          </div>
 
-            {/* Content Area - Inside Tabs for proper conditional rendering */}
-            <div className="flex-1 overflow-y-auto">
-              <TabsContent value="chat" className="mt-0 h-full">
-                <ChatInterface />
-              </TabsContent>
-              <TabsContent value="studio" className="mt-0 h-full">
-                <AvatarStudio />
-              </TabsContent>
-              <TabsContent value="profile" className="mt-0 h-full">
-                <UserProfile />
-              </TabsContent>
-              <TabsContent value="settings" className="mt-0 h-full">
-                <SettingsBoard />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </header>
-      </div>
+          {/* Content Area - Inner scrolling */}
+          <div className="flex-1 overflow-hidden relative">
+            <TabsContent value="chat" className="h-full m-0 data-[state=active]:flex flex-col">
+              <ChatInterface />
+            </TabsContent>
+            <TabsContent value="studio" className="h-full m-0 overflow-y-auto">
+              <AvatarStudio />
+            </TabsContent>
+            <TabsContent value="profile" className="h-full m-0 overflow-y-auto">
+              <UserProfile />
+            </TabsContent>
+            <TabsContent value="settings" className="h-full m-0 overflow-y-auto">
+              <SettingsBoard />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </main>
     </div>
   )
 }
