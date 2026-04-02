@@ -1,6 +1,8 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import { SkeletonUtils } from 'three-stdlib'
 
 const WAVE_COUNT = 800
 
@@ -377,6 +379,36 @@ export function DNAAvatar({ size = 1, speed = 1, color }: DNAAvatarProps) {
         </bufferGeometry>
         <lineBasicMaterial color={color} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
       </lineSegments>
+    </group>
+  )
+}
+
+interface GLTFAvatarProps {
+  url: string
+  scale: number
+}
+
+export function GLTFAvatar({ url, scale = 2.5 }: GLTFAvatarProps) {
+  const { scene } = useGLTF(url)
+  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene])
+
+  useEffect(() => {
+    clonedScene.traverse((child: THREE.Object3D) => {
+      if ((child as THREE.Bone).isBone) {
+        const name = child.name.toLowerCase()
+        if (name.includes('j_bip_l_upperarm') || name === 'leftarm' || name === 'mixamorigleftarm') {
+          child.rotation.z = -1.2
+        }
+        if (name.includes('j_bip_r_upperarm') || name === 'rightarm' || name === 'mixamorigrightarm') {
+          child.rotation.z = 1.2
+        }
+      }
+    })
+  }, [clonedScene])
+
+  return (
+    <group position={[0, -1.4, 0]}>
+      <primitive object={clonedScene} scale={scale} />
     </group>
   )
 }

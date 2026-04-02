@@ -1,10 +1,21 @@
-import { useState, useEffect } from 'react'
+import { Component, useState, useEffect, Suspense } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei'
+import { Box, X } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar } from '@/components/3d/AvatarForms'
+import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar, GLTFAvatar } from '@/components/3d/AvatarForms'
+
+class PreviewErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false } }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) return this.props.fallback ?? null
+    return this.props.children
+  }
+}
 
 const FORMS = ['Cube', 'Swarm', 'Swarm 2', 'Wave', 'Ghost', 'Core', 'DNA']
 
@@ -289,12 +300,23 @@ export default function AvatarStudio() {
   const [activeTab, setActiveTab] = useLocalStorage('studioTab', 'form')
   const [avatarMode, setAvatarMode] = useLocalStorage('avatarMode', 'form')
   const [avatar2DUrl, setAvatar2DUrl] = useLocalStorage('avatar2DUrl', '')
+  const [avatar3DUrl, setAvatar3DUrl] = useLocalStorage('avatar3DUrl', '')
+  const [, setAvatar3DFileName] = useLocalStorage('avatar3DFileName', '')
   const [gallery, setGallery] = useLocalStorage('avatarGallery', [])
+  const [avatar3DGallery, setAvatar3DGallery] = useLocalStorage('avatar3DGallery', [])
+
+  useEffect(() => {
+    if (avatar3DUrl.startsWith('blob:') && !sessionStorage.getItem(avatar3DUrl)) {
+      setAvatar3DUrl('')
+      setAvatar3DGallery([])
+    }
+  }, [])
 
   const handleTabClick = (tab) => {
     setActiveTab(tab)
     if (tab === '2d')   setAvatarMode('2d')
     if (tab === 'form') setAvatarMode('form')
+    if (tab === '3d')   setAvatarMode('3d')
   }
 
   const handleFileUpload = (e) => {
@@ -430,8 +452,97 @@ export default function AvatarStudio() {
 
           {activeTab === '3d' && (
             <TabsContent>
-              <div className="flex items-center justify-center h-64 rounded-lg border border-dashed border-border text-muted-foreground text-sm">
-                3D Avatar support coming in future updates
+              <div className="flex gap-8">
+
+                {/* Active preview */}
+                <div className="flex flex-col items-center gap-3 shrink-0">
+                  <div className="w-40 h-40 rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black">
+                    {avatar3DUrl ? (
+                      <PreviewErrorBoundary fallback={
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
+                          Failed to load
+                        </div>
+                      }>
+                        <Canvas camera={{ position: [0, 0, 1.5], fov: 45 }}>
+                          <ambientLight intensity={0.6} />
+                          <directionalLight position={[5, 5, 5]} intensity={1} />
+                          <Suspense fallback={null}>
+                            <GLTFAvatar url={avatar3DUrl} scale={1.5} />
+                          </Suspense>
+                          <OrbitControls enableZoom={false} />
+                        </Canvas>
+                      </PreviewErrorBoundary>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
+                        No model loaded
+                      </div>
+                    )}
+                  </div>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors">
+                    + Upload .glb / .gltf / .vrm
+                    <input
+                      type="file"
+                      accept=".glb,.gltf,.fbx,.vrm"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const objectUrl = URL.createObjectURL(file)
+                        sessionStorage.setItem(objectUrl, '1')
+                        const newItem = { id: Date.now().toString(), name: file.name, url: objectUrl }
+                        setAvatar3DGallery(prev => [...prev, newItem])
+                        setAvatar3DUrl(objectUrl)
+                        setAvatar3DFileName(file.name)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Gallery */}
+                <div className="flex-1 min-w-0 space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Models {avatar3DGallery.length > 0 && <span className="normal-case font-normal">({avatar3DGallery.length})</span>}
+                  </p>
+
+                  {avatar3DGallery.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No models yet. Upload a .glb, .gltf, or .vrm file.</p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-3">
+                      {avatar3DGallery.map(item => (
+                        <div key={item.id} className="relative group">
+                          <button
+                            onClick={() => { setAvatar3DUrl(item.url); setAvatar3DFileName(item.name) }}
+                            className={`w-full flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors bg-muted/10 hover:bg-muted/30 ${
+                              avatar3DUrl === item.url
+                                ? 'border-primary shadow-[0_0_12px_rgba(139,92,246,0.5)]'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <Box className="w-8 h-8 text-muted-foreground shrink-0" strokeWidth={1.5} />
+                            <span className="w-full text-[10px] text-center text-muted-foreground truncate leading-tight">
+                              {item.name}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              URL.revokeObjectURL(item.url)
+                              setAvatar3DGallery(prev => prev.filter(g => g.id !== item.id))
+                              if (avatar3DUrl === item.url) { setAvatar3DUrl(''); setAvatar3DFileName('') }
+                            }}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          {avatar3DUrl === item.url && (
+                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-primary font-semibold uppercase tracking-wider">active</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </TabsContent>
           )}

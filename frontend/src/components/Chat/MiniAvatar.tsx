@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { Component, ReactNode, useState, Suspense } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
-import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar } from '@/components/3d/AvatarForms'
+import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar, GLTFAvatar } from '@/components/3d/AvatarForms'
 
 interface AvatarConfig {
   activeForm: string
@@ -59,6 +59,21 @@ const DEFAULT_CONFIG: AvatarConfig = {
   dnaColor: '#00ff88',
 }
 
+class AvatarErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) return this.props.fallback
+    return this.props.children
+  }
+}
+
 function readConfig(): AvatarConfig {
   try {
     const raw = localStorage.getItem('avatarConfig')
@@ -102,8 +117,10 @@ function getActiveSize(config: AvatarConfig): number {
 
 export default function MiniAvatar() {
   const [config] = useState<AvatarConfig>(readConfig)
-  const [avatarMode]  = useLocalStorage('avatarMode', 'form')
-  const [avatar2DUrl] = useLocalStorage('avatar2DUrl', '')
+  const [avatarMode]       = useLocalStorage('avatarMode', 'form')
+  const [avatar2DUrl]      = useLocalStorage('avatar2DUrl', '')
+  const [avatar3DUrl]      = useLocalStorage('avatar3DUrl', '')
+  const [avatar3DFileName] = useLocalStorage('avatar3DFileName', '')
 
   const currentSize = getActiveSize(config)
   const calculatedZPosition = Math.max(1.5, 3.5 - (currentSize * 1.5))
@@ -116,7 +133,7 @@ export default function MiniAvatar() {
     )
   }
 
-  return (
+  const formAvatar = (
     <div className="w-20 h-20 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40">
       <Canvas camera={{ position: [0, 0, calculatedZPosition], fov: 45 }} frameloop="always">
         <ambientLight intensity={0.4} />
@@ -125,4 +142,25 @@ export default function MiniAvatar() {
       </Canvas>
     </div>
   )
+
+  const is3D = avatarMode === '3d' && !!avatar3DUrl
+  const isVRM = !!avatar3DUrl && avatar3DFileName.toLowerCase().endsWith('.vrm')
+
+  if (is3D || isVRM) {
+    return (
+      <AvatarErrorBoundary fallback={formAvatar}>
+        <div className="w-20 h-20 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40">
+          <Canvas camera={{ position: [0, 0, 2.5], fov: 45 }} frameloop="always">
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[2, 2, 2]} intensity={2} />
+            <Suspense fallback={null}>
+              <GLTFAvatar url={avatar3DUrl} scale={2.5} />
+            </Suspense>
+          </Canvas>
+        </div>
+      </AvatarErrorBoundary>
+    )
+  }
+
+  return formAvatar
 }
