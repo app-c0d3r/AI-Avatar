@@ -15,7 +15,7 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="h-full p-6">
+    <div className="h-full overflow-y-auto p-6">
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-bold mb-6">User Profile</h2>
 
