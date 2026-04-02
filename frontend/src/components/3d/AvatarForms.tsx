@@ -11,19 +11,30 @@ interface CubeAvatarProps {
 }
 
 export function CubeAvatar({ size, speed, color }: CubeAvatarProps) {
-  const meshRef = useRef<THREE.Mesh>(null!)
+  const groupRef = useRef<THREE.Group>(null!)
+
+  const edgesGeo = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(size, size, size)),
+    [size]
+  )
 
   useFrame(() => {
-    if (!meshRef.current) return
-    meshRef.current.rotation.x += speed
-    meshRef.current.rotation.y += speed
+    if (!groupRef.current) return
+    groupRef.current.rotation.x += speed
+    groupRef.current.rotation.y += speed
   })
 
   return (
-    <mesh ref={meshRef}>
-      <boxGeometry args={[size, size, size]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
+    <group ref={groupRef}>
+      <mesh>
+        <boxGeometry args={[size, size, size]} />
+        <meshPhysicalMaterial color="#111111" transparent={true} opacity={0.7} roughness={0.2} metalness={0.8} />
+        <pointLight distance={size * 2} intensity={2} color={color} />
+      </mesh>
+      <lineSegments geometry={edgesGeo}>
+        <lineBasicMaterial color={color} />
+      </lineSegments>
+    </group>
   )
 }
 
@@ -260,6 +271,113 @@ export function WaveAvatar({ amplitude, frequency, color, size = 1.0 }: WaveAvat
         sizeAttenuation
       />
     </points>
+  )
+}
+
+interface CoreAvatarProps {
+  size?: number
+  speed?: number
+  color: string
+}
+
+export function CoreAvatar({ size = 1, speed = 1, color }: CoreAvatarProps) {
+  const ring1Ref = useRef<THREE.Mesh>(null!)
+  const ring2Ref = useRef<THREE.Mesh>(null!)
+  const ring3Ref = useRef<THREE.Mesh>(null!)
+
+  useFrame((_, delta) => {
+    const s = speed * delta
+    if (ring1Ref.current) { ring1Ref.current.rotation.x += s * 0.8; ring1Ref.current.rotation.y += s * 1.2 }
+    if (ring2Ref.current) { ring2Ref.current.rotation.y += s * 0.6; ring2Ref.current.rotation.z += s * 1.0 }
+    if (ring3Ref.current) { ring3Ref.current.rotation.x += s * 1.1; ring3Ref.current.rotation.z += s * 0.7 }
+  })
+
+  const ringR = size * 1.5
+  const tube  = size * 0.04
+
+  return (
+    <group>
+      <pointLight intensity={2} distance={size * 4} color={color} />
+      <mesh>
+        <sphereGeometry args={[size * 0.4, 32, 32]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} />
+      </mesh>
+      <mesh ref={ring1Ref}>
+        <torusGeometry args={[ringR, tube, 8, 64]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+      </mesh>
+      <mesh ref={ring2Ref} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[ringR * 0.85, tube, 8, 64]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+      </mesh>
+      <mesh ref={ring3Ref} rotation={[0, Math.PI / 4, Math.PI / 2]}>
+        <torusGeometry args={[ringR * 0.7, tube, 8, 64]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+      </mesh>
+    </group>
+  )
+}
+
+const DNA_POINTS        = 80
+const DNA_RUNG_INTERVAL = 4
+
+interface DNAAvatarProps {
+  size?: number
+  speed?: number
+  color: string
+}
+
+export function DNAAvatar({ size = 1, speed = 1, color }: DNAAvatarProps) {
+  const groupRef = useRef<THREE.Group>(null!)
+
+  const { strand1Pos, strand2Pos, rungPos, rungCount } = useMemo(() => {
+    const radius = 1.2 * size
+    const vStep  = 0.18 * size
+    const yOff   = (DNA_POINTS * vStep) / 2
+    const s1 = new Float32Array(DNA_POINTS * 3)
+    const s2 = new Float32Array(DNA_POINTS * 3)
+    const rc = Math.floor(DNA_POINTS / DNA_RUNG_INTERVAL)
+    const rp = new Float32Array(rc * 6)
+
+    for (let i = 0; i < DNA_POINTS; i++) {
+      const angle = i * 0.4
+      const y     = i * vStep - yOff
+      s1[i*3]   = Math.cos(angle) * radius;         s1[i*3+1] = y; s1[i*3+2] = Math.sin(angle) * radius
+      s2[i*3]   = Math.cos(angle + Math.PI) * radius; s2[i*3+1] = y; s2[i*3+2] = Math.sin(angle + Math.PI) * radius
+    }
+    for (let r = 0; r < rc; r++) {
+      const i = r * DNA_RUNG_INTERVAL
+      rp[r*6]   = s1[i*3]; rp[r*6+1] = s1[i*3+1]; rp[r*6+2] = s1[i*3+2]
+      rp[r*6+3] = s2[i*3]; rp[r*6+4] = s2[i*3+1]; rp[r*6+5] = s2[i*3+2]
+    }
+    return { strand1Pos: s1, strand2Pos: s2, rungPos: rp, rungCount: rc }
+  }, [size])
+
+  useFrame((_, delta) => {
+    if (groupRef.current) groupRef.current.rotation.y += speed * delta * 0.5
+  })
+
+  return (
+    <group ref={groupRef}>
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={DNA_POINTS} array={strand1Pos} itemSize={3} />
+        </bufferGeometry>
+        <pointsMaterial size={0.1} color={color} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} sizeAttenuation />
+      </points>
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={DNA_POINTS} array={strand2Pos} itemSize={3} />
+        </bufferGeometry>
+        <pointsMaterial size={0.1} color={color} transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} sizeAttenuation />
+      </points>
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={rungCount * 2} array={rungPos} itemSize={3} />
+        </bufferGeometry>
+        <lineBasicMaterial color={color} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </lineSegments>
+    </group>
   )
 }
 

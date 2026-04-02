@@ -4,9 +4,9 @@ import { Canvas } from '@react-three/fiber'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar } from '@/components/3d/AvatarForms'
+import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar } from '@/components/3d/AvatarForms'
 
-const FORMS = ['Cube', 'Swarm', 'Swarm 2', 'Wave', 'Ghost']
+const FORMS = ['Cube', 'Swarm', 'Swarm 2', 'Wave', 'Ghost', 'Core', 'DNA']
 
 const STUDIO_DEFAULTS = {
   cubeSize: 2, rotationSpeed: 0.01, cubeColor: '#8b5cf6',
@@ -14,6 +14,8 @@ const STUDIO_DEFAULTS = {
   swarm2Count: 70, swarm2Speed: 0.5, swarm2Size: 1.0, swarm2Color: '#00d2ff',
   amplitude: 1.5, frequency: 1.5, waveSize: 1.0, waveColor: '#ff00ff',
   ghostDistort: 0.4, ghostSpeed: 2, ghostSize: 1.0, ghostColor: '#ffffff',
+  coreSize: 1.0, coreSpeed: 1.0, coreColor: '#00ffff',
+  dnaSize: 1.0, dnaSpeed: 1.0, dnaColor: '#00ff88',
 }
 
 function loadAvatarConfig() {
@@ -25,13 +27,15 @@ function loadAvatarConfig() {
   }
 }
 
-function PreviewCanvas({ activeForm, cubeSize, rotationSpeed, cubeColor, particleCount, spread, swarmColor, swarm2Count, swarm2Speed, swarm2Size, swarm2Color, amplitude, frequency, waveColor, waveSize, ghostDistort, ghostSpeed, ghostSize, ghostColor }) {
+function PreviewCanvas({ activeForm, cubeSize, rotationSpeed, cubeColor, particleCount, spread, swarmColor, swarm2Count, swarm2Speed, swarm2Size, swarm2Color, amplitude, frequency, waveColor, waveSize, ghostDistort, ghostSpeed, ghostSize, ghostColor, coreSize, coreSpeed, coreColor, dnaSize, dnaSpeed, dnaColor }) {
   const avatars = {
     Cube:      <CubeAvatar size={cubeSize} speed={rotationSpeed} color={cubeColor} />,
     Swarm:     <SwarmAvatar count={particleCount} spread={spread} color={swarmColor} />,
     'Swarm 2': <Swarm2Avatar count={swarm2Count} speed={swarm2Speed} size={swarm2Size} color={swarm2Color} />,
     Wave:      <WaveAvatar amplitude={amplitude} frequency={frequency} color={waveColor} size={waveSize} />,
     Ghost:     <GhostAvatar distort={ghostDistort} speed={ghostSpeed} size={ghostSize} color={ghostColor} />,
+    Core:      <CoreAvatar size={coreSize} speed={coreSpeed} color={coreColor} />,
+    DNA:       <DNAAvatar size={dnaSize} speed={dnaSpeed} color={dnaColor} />,
   }
 
   return (
@@ -67,6 +71,8 @@ function FormSettings({
   swarm2Count, setSwarm2Count, swarm2Speed, setSwarm2Speed, swarm2Size, setSwarm2Size, swarm2Color, setSwarm2Color,
   amplitude, setAmplitude, frequency, setFrequency, waveColor, setWaveColor, waveSize, setWaveSize,
   ghostDistort, setGhostDistort, ghostSpeed, setGhostSpeed, ghostSize, setGhostSize, ghostColor, setGhostColor,
+  coreSize, setCoreSize, coreSpeed, setCoreSpeed, coreColor, setCoreColor,
+  dnaSize, setDnaSize, dnaSpeed, setDnaSpeed, dnaColor, setDnaColor,
 }) {
   if (activeForm === 'Cube') {
     return (
@@ -106,6 +112,26 @@ function FormSettings({
         <Slider label="Speed" min={0} max={10} step={0.5} value={ghostSpeed} onValueChange={setGhostSpeed} />
         <Slider label="Size" min={0.3} max={3} step={0.1} value={ghostSize} onValueChange={setGhostSize} />
         <ColorPicker value={ghostColor} onChange={setGhostColor} />
+      </div>
+    )
+  }
+
+  if (activeForm === 'Core') {
+    return (
+      <div className="space-y-5">
+        <Slider label="Size" min={0.3} max={3} step={0.1} value={coreSize} onValueChange={setCoreSize} />
+        <Slider label="Speed" min={0.1} max={5} step={0.1} value={coreSpeed} onValueChange={setCoreSpeed} />
+        <ColorPicker value={coreColor} onChange={setCoreColor} />
+      </div>
+    )
+  }
+
+  if (activeForm === 'DNA') {
+    return (
+      <div className="space-y-5">
+        <Slider label="Size" min={0.3} max={3} step={0.1} value={dnaSize} onValueChange={setDnaSize} />
+        <Slider label="Speed" min={0.1} max={5} step={0.1} value={dnaSpeed} onValueChange={setDnaSpeed} />
+        <ColorPicker value={dnaColor} onChange={setDnaColor} />
       </div>
     )
   }
@@ -152,6 +178,14 @@ function FormTab() {
   const [ghostSize, setGhostSize]         = useState(init.ghostSize)
   const [ghostColor, setGhostColor]       = useState(init.ghostColor)
 
+  const [coreSize, setCoreSize]           = useState(init.coreSize)
+  const [coreSpeed, setCoreSpeed]         = useState(init.coreSpeed)
+  const [coreColor, setCoreColor]         = useState(init.coreColor)
+
+  const [dnaSize, setDnaSize]             = useState(init.dnaSize)
+  const [dnaSpeed, setDnaSpeed]           = useState(init.dnaSpeed)
+  const [dnaColor, setDnaColor]           = useState(init.dnaColor)
+
   useEffect(() => {
     const config = {
       activeForm,
@@ -160,6 +194,8 @@ function FormTab() {
       swarm2Count, swarm2Speed, swarm2Size, swarm2Color,
       amplitude, frequency, waveSize, waveColor,
       ghostDistort, ghostSpeed, ghostSize, ghostColor,
+      coreSize, coreSpeed, coreColor,
+      dnaSize, dnaSpeed, dnaColor,
     }
     localStorage.setItem('avatarConfig', JSON.stringify(config))
   }, [
@@ -169,6 +205,8 @@ function FormTab() {
     swarm2Count, swarm2Speed, swarm2Size, swarm2Color,
     amplitude, frequency, waveSize, waveColor,
     ghostDistort, ghostSpeed, ghostSize, ghostColor,
+    coreSize, coreSpeed, coreColor,
+    dnaSize, dnaSpeed, dnaColor,
   ])
 
   return (
@@ -201,6 +239,8 @@ function FormTab() {
               swarm2Count={swarm2Count} swarm2Speed={swarm2Speed} swarm2Size={swarm2Size} swarm2Color={swarm2Color}
               amplitude={amplitude} frequency={frequency} waveColor={waveColor} waveSize={waveSize}
               ghostDistort={ghostDistort} ghostSpeed={ghostSpeed} ghostSize={ghostSize} ghostColor={ghostColor}
+              coreSize={coreSize} coreSpeed={coreSpeed} coreColor={coreColor}
+              dnaSize={dnaSize} dnaSpeed={dnaSpeed} dnaColor={dnaColor}
             />
           </div>
         </div>
@@ -229,6 +269,12 @@ function FormTab() {
             ghostSpeed={ghostSpeed} setGhostSpeed={setGhostSpeed}
             ghostSize={ghostSize} setGhostSize={setGhostSize}
             ghostColor={ghostColor} setGhostColor={setGhostColor}
+            coreSize={coreSize} setCoreSize={setCoreSize}
+            coreSpeed={coreSpeed} setCoreSpeed={setCoreSpeed}
+            coreColor={coreColor} setCoreColor={setCoreColor}
+            dnaSize={dnaSize} setDnaSize={setDnaSize}
+            dnaSpeed={dnaSpeed} setDnaSpeed={setDnaSpeed}
+            dnaColor={dnaColor} setDnaColor={setDnaColor}
           />
         </div>
 
@@ -237,8 +283,46 @@ function FormTab() {
   )
 }
 
+const PRESET_SEEDS = ['Felix', 'Mia', 'Luca']
+
 export default function AvatarStudio() {
-  const [activeTab, setActiveTab] = useState('form')
+  const [activeTab, setActiveTab] = useLocalStorage('studioTab', 'form')
+  const [avatarMode, setAvatarMode] = useLocalStorage('avatarMode', 'form')
+  const [avatar2DUrl, setAvatar2DUrl] = useLocalStorage('avatar2DUrl', '')
+  const [gallery, setGallery] = useLocalStorage('avatarGallery', [])
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab)
+    if (tab === '2d')   setAvatarMode('2d')
+    if (tab === 'form') setAvatarMode('form')
+  }
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        const newItem = { id: Date.now().toString(), url: reader.result, name: file.name }
+        setGallery(prev => [...prev, newItem])
+        setAvatar2DUrl(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handlePresetAdd = (url, seed) => {
+    if (!gallery.some(item => item.url === url)) {
+      setGallery(prev => [...prev, { id: `preset-${seed}`, url, name: seed }])
+    }
+    setAvatar2DUrl(url)
+  }
+
+  const handleGalleryDelete = (id, url) => {
+    setGallery(prev => prev.filter(item => item.id !== id))
+    if (avatar2DUrl === url) setAvatar2DUrl('')
+  }
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -251,7 +335,7 @@ export default function AvatarStudio() {
               <TabsTrigger
                 key={tab}
                 data-state={activeTab === tab ? 'active' : 'inactive'}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabClick(tab)}
                 className="uppercase tracking-widest text-xs px-6"
               >
                 {tab}
@@ -265,8 +349,81 @@ export default function AvatarStudio() {
 
           {activeTab === '2d' && (
             <TabsContent>
-              <div className="flex items-center justify-center h-64 rounded-lg border border-dashed border-border text-muted-foreground text-sm">
-                2D Avatar support coming in future updates
+              <div className="flex gap-8">
+
+                {/* Active preview */}
+                <div className="flex flex-col items-center gap-3 shrink-0">
+                  <div className="w-40 h-40 rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black flex items-center justify-center">
+                    {avatar2DUrl ? (
+                      <img src={avatar2DUrl} className="w-full h-full object-cover" alt="Active avatar" />
+                    ) : (
+                      <span className="text-muted-foreground text-xs text-center px-4">None selected</span>
+                    )}
+                  </div>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors">
+                    + Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                  </label>
+                </div>
+
+                {/* Gallery + presets */}
+                <div className="flex-1 space-y-6 min-w-0">
+
+                  {/* Gallery */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                      Gallery {gallery.length > 0 && <span className="normal-case font-normal">({gallery.length})</span>}
+                    </p>
+                    {gallery.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No images saved yet. Upload one or add a preset.</p>
+                    ) : (
+                      <div className="grid grid-cols-5 gap-3">
+                        {gallery.map(item => (
+                          <div key={item.id} className="relative group">
+                            <button
+                              onClick={() => setAvatar2DUrl(item.url)}
+                              className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${avatar2DUrl === item.url ? 'border-primary shadow-[0_0_12px_rgba(139,92,246,0.6)]' : 'border-border hover:border-primary/50'}`}
+                            >
+                              <img src={item.url} className="w-full h-full object-cover" alt={item.name || 'Avatar'} />
+                            </button>
+                            <button
+                              onClick={() => handleGalleryDelete(item.id, item.url)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none"
+                            >
+                              ×
+                            </button>
+                            {avatar2DUrl === item.url && (
+                              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-primary font-semibold uppercase tracking-wider">active</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Presets */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Presets</p>
+                    <div className="flex gap-3">
+                      {PRESET_SEEDS.map((seed) => {
+                        const url = `https://api.dicebear.com/9.x/avataaars/svg?seed=${seed}`
+                        const inGallery = gallery.some(item => item.url === url)
+                        return (
+                          <div key={seed} className="flex flex-col items-center gap-1">
+                            <button
+                              onClick={() => handlePresetAdd(url, seed)}
+                              className={`w-14 h-14 rounded-full overflow-hidden border-2 transition-colors bg-white ${avatar2DUrl === url ? 'border-primary' : 'border-border hover:border-primary/60'}`}
+                            >
+                              <img src={url} alt={seed} className="w-full h-full object-cover" />
+                            </button>
+                            <span className="text-[10px] text-muted-foreground">{inGallery ? '✓' : '+ add'}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                </div>
               </div>
             </TabsContent>
           )}

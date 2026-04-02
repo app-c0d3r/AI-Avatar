@@ -290,7 +290,6 @@ export default function ChatInterface() {
                 e.target.style.height = `${e.target.scrollHeight}px`
               }}
               onKeyDown={handleKeyDown}
-              disabled={isLoading}
             />
             <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
               Send
