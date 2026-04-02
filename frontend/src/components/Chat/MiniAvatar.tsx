@@ -121,20 +121,28 @@ export default function MiniAvatar() {
   const [avatar2DUrl]      = useLocalStorage('avatar2DUrl', '')
   const [avatar3DUrl]      = useLocalStorage('avatar3DUrl', '')
   const [avatar3DFileName] = useLocalStorage('avatar3DFileName', '')
+  const [avatar3DScaleRaw]   = useLocalStorage('avatar3DScale', 2.5)
+  const [avatar3DYOffsetRaw] = useLocalStorage('avatar3DYOffset', -2.0)
+  const [chatAvatarSizeRaw]  = useLocalStorage('chatAvatarSize', 80)
+  const avatar3DScale  = Number(avatar3DScaleRaw)
+  const avatar3DYOffset = Number(avatar3DYOffsetRaw)
+  const chatAvatarSize = Number(chatAvatarSizeRaw)
+  const clampedSize = `clamp(60px, 10vw, ${chatAvatarSize}px)`
+  const sizeStyle = { width: clampedSize, height: clampedSize }
 
   const currentSize = getActiveSize(config)
   const calculatedZPosition = Math.max(1.5, 3.5 - (currentSize * 1.5))
 
   if (avatarMode === '2d' && avatar2DUrl) {
     return (
-      <div className="w-20 h-20 rounded-full overflow-hidden border border-primary/50 shadow-lg">
+      <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg" style={sizeStyle}>
         <img src={avatar2DUrl} className="w-full h-full object-cover" alt="Avatar" />
       </div>
     )
   }
 
   const formAvatar = (
-    <div className="w-20 h-20 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40">
+    <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40" style={sizeStyle}>
       <Canvas camera={{ position: [0, 0, calculatedZPosition], fov: 45 }} frameloop="always">
         <ambientLight intensity={0.4} />
         <directionalLight position={[10, 10, 10]} intensity={0.8} />
@@ -149,12 +157,12 @@ export default function MiniAvatar() {
   if (is3D || isVRM) {
     return (
       <AvatarErrorBoundary fallback={formAvatar}>
-        <div className="w-20 h-20 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40">
-          <Canvas camera={{ position: [0, 0, 2.5], fov: 45 }} frameloop="always">
+        <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40" style={sizeStyle}>
+          <Canvas camera={{ position: [0, 0, 3], fov: 45 }} frameloop="always">
             <ambientLight intensity={1.5} />
             <directionalLight position={[2, 2, 2]} intensity={2} />
             <Suspense fallback={null}>
-              <GLTFAvatar url={avatar3DUrl} scale={2.5} />
+              <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
             </Suspense>
           </Canvas>
         </div>

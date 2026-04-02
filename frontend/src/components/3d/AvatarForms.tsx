@@ -386,9 +386,10 @@ export function DNAAvatar({ size = 1, speed = 1, color }: DNAAvatarProps) {
 interface GLTFAvatarProps {
   url: string
   scale: number
+  yOffset?: number
 }
 
-export function GLTFAvatar({ url, scale = 2.5 }: GLTFAvatarProps) {
+export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps) {
   const { scene } = useGLTF(url)
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene])
 
@@ -407,7 +408,7 @@ export function GLTFAvatar({ url, scale = 2.5 }: GLTFAvatarProps) {
   }, [clonedScene])
 
   return (
-    <group position={[0, -1.4, 0]}>
+    <group position={[0, yOffset, 0]}>
       <primitive object={clonedScene} scale={scale} />
     </group>
   )

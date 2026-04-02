@@ -1,7 +1,7 @@
 import { Component, useState, useEffect, Suspense } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+
 import { Box, X } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -304,6 +304,9 @@ export default function AvatarStudio() {
   const [, setAvatar3DFileName] = useLocalStorage('avatar3DFileName', '')
   const [gallery, setGallery] = useLocalStorage('avatarGallery', [])
   const [avatar3DGallery, setAvatar3DGallery] = useLocalStorage('avatar3DGallery', [])
+  const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
+  const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
+  const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
 
   useEffect(() => {
     if (avatar3DUrl.startsWith('blob:') && !sessionStorage.getItem(avatar3DUrl)) {
@@ -463,13 +466,12 @@ export default function AvatarStudio() {
                           Failed to load
                         </div>
                       }>
-                        <Canvas camera={{ position: [0, 0, 1.5], fov: 45 }}>
-                          <ambientLight intensity={0.6} />
-                          <directionalLight position={[5, 5, 5]} intensity={1} />
+                        <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
+                          <ambientLight intensity={1.5} />
+                          <directionalLight position={[2, 2, 2]} intensity={2} />
                           <Suspense fallback={null}>
-                            <GLTFAvatar url={avatar3DUrl} scale={1.5} />
+                            <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
                           </Suspense>
-                          <OrbitControls enableZoom={false} />
                         </Canvas>
                       </PreviewErrorBoundary>
                     ) : (
@@ -504,6 +506,60 @@ export default function AvatarStudio() {
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Models {avatar3DGallery.length > 0 && <span className="normal-case font-normal">({avatar3DGallery.length})</span>}
                   </p>
+
+                  <div className="space-y-2 pb-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Zoom / Scale
+                      </label>
+                      <span className="text-xs text-muted-foreground font-mono">{Number(avatar3DScale).toFixed(1)}×</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="6"
+                      step="0.1"
+                      value={avatar3DScale}
+                      onChange={(e) => setAvatar3DScale(Number(e.target.value))}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
+                    />
+                  </div>
+
+                  <div className="space-y-2 pb-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Vertical Position
+                      </label>
+                      <span className="text-xs text-muted-foreground font-mono">{Number(avatar3DYOffset).toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-8"
+                      max="2"
+                      step="0.1"
+                      value={avatar3DYOffset}
+                      onChange={(e) => setAvatar3DYOffset(Number(e.target.value))}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
+                    />
+                  </div>
+
+                  <div className="space-y-2 pb-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Chat Bubble Size
+                      </label>
+                      <span className="text-xs text-muted-foreground font-mono">{Number(chatAvatarSize)}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="150"
+                      step="2"
+                      value={chatAvatarSize}
+                      onChange={(e) => setChatAvatarSize(Number(e.target.value))}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
+                    />
+                  </div>
 
                   {avatar3DGallery.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No models yet. Upload a .glb, .gltf, or .vrm file.</p>
