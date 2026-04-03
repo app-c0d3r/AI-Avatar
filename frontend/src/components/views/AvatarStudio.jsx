@@ -308,6 +308,9 @@ export default function AvatarStudio() {
   const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
   const [isUploading3D, setIsUploading3D]     = useState(false)
+  const [systemPrompt, setSystemPrompt]       = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
+  const [voiceProfile, setVoiceProfile]       = useLocalStorage('mapa-voiceProfile', 'female')
+  const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
 
   const handleTabClick = (tab) => {
     setActiveTab(tab)
@@ -565,6 +568,51 @@ export default function AvatarStudio() {
                       onChange={(e) => setChatAvatarSize(Number(e.target.value))}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      AI Behavior &amp; Voice
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        System Prompt
+                      </label>
+                      <textarea
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        className="w-full h-20 bg-muted/50 border border-border rounded-md p-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Voice Profile
+                      </label>
+                      <select
+                        value={voiceProfile}
+                        onChange={(e) => setVoiceProfile(e.target.value)}
+                        className="w-full bg-muted/50 border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="female">Female Voice</option>
+                        <option value="male">Male Voice</option>
+                        <option value="robot">Robot Voice</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="autoRead"
+                        checked={autoRead}
+                        onChange={(e) => setAutoRead(e.target.checked)}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                      <label htmlFor="autoRead" className="text-sm cursor-pointer select-none">
+                        Auto-Read Chat Responses
+                      </label>
+                    </div>
                   </div>
 
                   {avatar3DGallery.length === 0 ? (

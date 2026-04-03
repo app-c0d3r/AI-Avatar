@@ -1,8 +1,8 @@
-import { useRef, useMemo, useEffect } from 'react'
+import { useRef, useMemo, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { SkeletonUtils } from 'three-stdlib'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
 const WAVE_COUNT = 800
 
@@ -390,26 +390,42 @@ interface GLTFAvatarProps {
 }
 
 export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps) {
-  const { scene } = useGLTF(url)
-  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene])
+  const [vrm, setVrm] = useState<any>(null)
 
   useEffect(() => {
-    clonedScene.traverse((child: THREE.Object3D) => {
-      if ((child as THREE.Bone).isBone) {
-        const name = child.name.toLowerCase()
-        if (name.includes('j_bip_l_upperarm') || name === 'leftarm' || name === 'mixamorigleftarm') {
-          child.rotation.z = -1.2
-        }
-        if (name.includes('j_bip_r_upperarm') || name === 'rightarm' || name === 'mixamorigrightarm') {
-          child.rotation.z = 1.2
-        }
+    let cancelled = false
+
+    const loader = new GLTFLoader()
+    loader.register((parser) => new VRMLoaderPlugin(parser))
+
+    loader.loadAsync(url).then((gltf) => {
+      if (!cancelled) {
+        setVrm(gltf.userData.vrm)
       }
     })
-  }, [clonedScene])
+
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  useFrame((_, delta) => {
+    if (vrm) {
+      vrm.update(delta)
+    }
+    if (vrm && vrm.humanoid) {
+      const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
+      const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
+      if (leftArm) leftArm.rotation.z = -1.2
+      if (rightArm) rightArm.rotation.z = 1.2
+    }
+  })
+
+  if (!vrm) return null
 
   return (
     <group position={[0, yOffset, 0]}>
-      <primitive object={clonedScene} scale={scale} />
+      <primitive object={vrm.scene} scale={scale} />
     </group>
   )
 }

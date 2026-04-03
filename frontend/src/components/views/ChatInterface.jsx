@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Copy, Play, Volume2, VolumeX } from 'lucide-react'
 
 import { useAvatar } from '@/context/AvatarContext'
 import { useChat, createMessage } from '@/context/ChatContext'
@@ -83,7 +84,10 @@ export default function ChatInterface() {
     updateSessionMessages
   } = useChat()
 
+  const [autoRead, setAutoRead] = useLocalStorage('mapa-autoRead', true)
+  const [voiceProfile] = useLocalStorage('mapa-voiceProfile', 'female')
   const [userName] = useLocalStorage('mapa-userName', '')
+  const [systemPrompt] = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
   const [llmProvider] = useLocalStorage('mapa-llmProvider', 'openrouter')
   const [apiKey] = useLocalStorage('mapa-apiKey', '')
   const [baseUrl] = useLocalStorage('mapa-baseUrl', '')
@@ -108,6 +112,47 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom()
   }, [activeSession?.messages])
+
+  const toggleMute = () => {
+    const newState = !autoRead
+    setAutoRead(newState)
+    if (!newState) window.speechSynthesis.cancel()
+  }
+
+  const speakText = (text, force = false) => {
+    if (!force && !autoRead) return
+    if (!window.speechSynthesis || !text) return
+
+    window.speechSynthesis.cancel()
+
+    const utterance = new SpeechSynthesisUtterance(text)
+
+    if (voiceProfile === 'robot') {
+      utterance.pitch = 0.2
+      utterance.rate = 0.9
+    } else {
+      const voices = window.speechSynthesis.getVoices()
+      if (voiceProfile === 'female') {
+        utterance.pitch = 1.2
+        utterance.rate = 1.0
+        const match = voices.find(v =>
+          /female|samantha|victoria|zira|karen|moira|tessa/i.test(v.name)
+        )
+        if (match) utterance.voice = match
+      } else if (voiceProfile === 'male') {
+        utterance.pitch = 0.8
+        utterance.rate = 1.0
+        const match = voices.find(v =>
+          /male|david|daniel|alex|fred|jorge|rishi/i.test(v.name)
+        )
+        if (match) utterance.voice = match
+      }
+    }
+
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const copyToClipboard = (text) => { navigator.clipboard.writeText(text) }
 
   const handleSubmit = async () => {
     if (!input.trim() || isLoading || !activeSessionId) return
@@ -136,7 +181,8 @@ export default function ChatInterface() {
             llmProvider,
             apiKey,
             baseUrl,
-            modelName
+            modelName,
+            systemPrompt
           }
         })
       })
@@ -145,7 +191,7 @@ export default function ChatInterface() {
 
       // Stream the response
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
+      const decoder = new TextDecoder(undefined, { stream: true })
       let accumulatedContent = ''
 
       while (true) {
@@ -173,7 +219,12 @@ export default function ChatInterface() {
               }
 
               if (parsed.content) {
-                accumulatedContent += parsed.content
+                // Smart append: detect full-text vs delta mode per chunk
+                if (accumulatedContent.length > 0 && parsed.content.startsWith(accumulatedContent)) {
+                  accumulatedContent = parsed.content
+                } else {
+                  accumulatedContent += parsed.content
+                }
                 updateSessionMessages(activeSessionId, [
                   ...newMessages,
                   createMessage('assistant', accumulatedContent)
@@ -185,6 +236,9 @@ export default function ChatInterface() {
           }
         }
       }
+
+      // Speak the full response exactly once after streaming finishes
+      speakText(accumulatedContent)
     } catch (error) {
       updateSessionMessages(activeSessionId, [
         ...newMessages,
@@ -245,19 +299,49 @@ export default function ChatInterface() {
                 {messages.map((msg, idx) =>
                   msg.role === 'user' ? (
                     <div key={idx} className="flex justify-end mb-4">
-                      <Card className="max-w-[80%] bg-primary text-primary-foreground">
-                        <CardContent className="p-3">
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        </CardContent>
-                      </Card>
+                      <div className="flex flex-col items-end">
+                        <Card className="max-w-full bg-primary text-primary-foreground">
+                          <CardContent className="p-3">
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </CardContent>
+                        </Card>
+                        <div className="flex gap-3 mt-1 mr-1">
+                          <button
+                            onClick={() => copyToClipboard(msg.content)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copy"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div key={idx} className="flex items-start mb-6">
-                      <Card className="max-w-[80%]">
-                        <CardContent className="p-3">
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        </CardContent>
-                      </Card>
+                      <div className="flex flex-col items-start max-w-[80%]">
+                        <Card>
+                          <CardContent className="p-3">
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </CardContent>
+                        </Card>
+                        <div className="flex gap-3 mt-1 ml-1">
+                          <button
+                            onClick={() => copyToClipboard(msg.content)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copy"
+                          >
+                            <Copy size={14} />
+                          </button>
+                          <button
+                            onClick={() => speakText(msg.content, true)}
+                            disabled={!autoRead}
+                            className={`transition-opacity ${!autoRead ? 'opacity-30 cursor-not-allowed' : 'opacity-60 hover:opacity-100 cursor-pointer'} text-muted-foreground`}
+                            title="Play Audio"
+                          >
+                            <Play size={14} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )
                 )}
@@ -278,6 +362,13 @@ export default function ChatInterface() {
           {/* Input Area - Fixed Bottom */}
           <div className="p-4 border-t shrink-0">
             <div className="flex gap-2 items-end">
+              <button
+                onClick={toggleMute}
+                className="shrink-0 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                title={autoRead ? 'Mute auto-read' : 'Unmute auto-read'}
+              >
+                {autoRead ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
               <textarea
                 ref={textareaRef}
                 placeholder="Type your message..."
