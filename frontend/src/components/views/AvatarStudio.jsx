@@ -307,13 +307,7 @@ export default function AvatarStudio() {
   const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
   const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
-
-  useEffect(() => {
-    if (avatar3DUrl.startsWith('blob:') && !sessionStorage.getItem(avatar3DUrl)) {
-      setAvatar3DUrl('')
-      setAvatar3DGallery([])
-    }
-  }, [])
+  const [isUploading3D, setIsUploading3D]     = useState(false)
 
   const handleTabClick = (tab) => {
     setActiveTab(tab)
@@ -459,7 +453,7 @@ export default function AvatarStudio() {
 
                 {/* Active preview */}
                 <div className="flex flex-col items-center gap-3 shrink-0">
-                  <div className="w-40 h-40 rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black">
+                  <div className="rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black" style={{ width: `${chatAvatarSize}px`, height: `${chatAvatarSize}px` }}>
                     {avatar3DUrl ? (
                       <PreviewErrorBoundary fallback={
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
@@ -480,22 +474,34 @@ export default function AvatarStudio() {
                       </div>
                     )}
                   </div>
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors">
-                    + Upload .glb / .gltf / .vrm
+                  <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors ${isUploading3D ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {isUploading3D ? 'Uploading...' : '+ Upload .glb / .gltf / .vrm'}
                     <input
                       type="file"
                       accept=".glb,.gltf,.fbx,.vrm"
                       className="hidden"
-                      onChange={(e) => {
+                      disabled={isUploading3D}
+                      onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        const objectUrl = URL.createObjectURL(file)
-                        sessionStorage.setItem(objectUrl, '1')
-                        const newItem = { id: Date.now().toString(), name: file.name, url: objectUrl }
-                        setAvatar3DGallery(prev => [...prev, newItem])
-                        setAvatar3DUrl(objectUrl)
-                        setAvatar3DFileName(file.name)
                         e.target.value = ''
+                        setIsUploading3D(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          const res = await fetch('http://localhost:8000/api/upload/model', { method: 'POST', body: formData })
+                          if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`)
+                          const data = await res.json()
+                          const newItem = { id: Date.now().toString(), name: file.name, url: data.url }
+                          setAvatar3DGallery(prev => [...prev, newItem])
+                          setAvatar3DUrl(data.url)
+                          setAvatar3DFileName(file.name)
+                        } catch (err) {
+                          console.error('3D model upload error:', err)
+                          alert(`Upload failed: ${err.message}`)
+                        } finally {
+                          setIsUploading3D(false)
+                        }
                       }}
                     />
                   </label>

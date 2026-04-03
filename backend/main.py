@@ -3,9 +3,11 @@ import json
 import logging
 from typing import Optional, AsyncGenerator
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 
@@ -26,6 +28,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Persistent upload directories — map to ./backend/uploads on the host via Docker volume mount
+UPLOADS_BASE   = Path("/app/uploads")
+UPLOADS_MODELS = UPLOADS_BASE / "models"
+UPLOADS_MODELS.mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_BASE)), name="uploads")
 
 # Provider defaults
 PROVIDER_BASE_URLS = {
@@ -212,3 +221,14 @@ async def chat(request: ChatRequest):
         stream_with_fallback(primary_client, model, messages, provider),
         media_type="text/event-stream"
     )
+
+
+@app.post("/api/upload/model")
+async def upload_model(file: UploadFile = File(...)):
+    """Receive a 3D model file and save it to the persistent uploads volume."""
+    dest = UPLOADS_MODELS / file.filename
+    content = await file.read()
+    dest.write_bytes(content)
+    url = f"http://localhost:8000/uploads/models/{file.filename}"
+    logger.info("3D model uploaded: %s (%d bytes)", file.filename, len(content))
+    return {"url": url}
