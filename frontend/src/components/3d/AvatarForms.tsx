@@ -455,50 +455,54 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
     }
   }, [url])
 
-  useFrame((_, delta) => {
-    if (vrm) {
-      const dt = Math.min(delta, 0.033)
-      vrm.update(dt)
-    }
-    if (vrm && vrm.expressionManager && analyserRef.current) {
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-      analyserRef.current.getByteFrequencyData(dataArray)
-      let maxVolume = 0
-      for (let i = 0; i < dataArray.length; i++) {
-        if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
+  useFrame((state, delta) => {
+    try {
+      if (vrm) {
+        const dt = Math.min(delta, 0.033)
+        vrm.update(dt)
       }
-      const rawMouth = (maxVolume - 30) / 100
-      const targetMouthOpen = Math.max(0, Math.min(rawMouth, 1.0))
-      const currentAa = vrm.expressionManager.getValue('aa') || 0
-      vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.4))
-    }
-    if (vrm && vrm.humanoid) {
-      const head = vrm.humanoid.getNormalizedBoneNode('head')
-      const neck = vrm.humanoid.getNormalizedBoneNode('neck')
-      const targetX = targetMouse.current.y * 0.3
-      const targetY = -targetMouse.current.x * 0.5
-      if (head) {
-        head.rotation.x = MathUtils.lerp(head.rotation.x, targetX, 0.05)
-        head.rotation.y = MathUtils.lerp(head.rotation.y, targetY, 0.05)
+      if (vrm && vrm.expressionManager && analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+        analyserRef.current.getByteFrequencyData(dataArray)
+        let maxVolume = 0
+        for (let i = 0; i < dataArray.length; i++) {
+          if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
+        }
+        const rawMouth = (maxVolume - 30) / 100
+        const targetMouthOpen = Math.max(0, Math.min(rawMouth, 1.0))
+        const currentAa = vrm.expressionManager.getValue('aa') || 0
+        vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.4))
       }
-      if (neck) {
-        neck.rotation.x = MathUtils.lerp(neck.rotation.x, targetX, 0.05)
-        neck.rotation.y = MathUtils.lerp(neck.rotation.y, targetY, 0.05)
+      if (vrm && vrm.humanoid) {
+        const head = vrm.humanoid.getNormalizedBoneNode('head')
+        const neck = vrm.humanoid.getNormalizedBoneNode('neck')
+        const targetX = targetMouse.current.y * 0.3
+        const targetY = -targetMouse.current.x * 0.5
+        if (head) {
+          head.rotation.x = MathUtils.lerp(head.rotation.x, targetX, 0.05)
+          head.rotation.y = MathUtils.lerp(head.rotation.y, targetY, 0.05)
+        }
+        if (neck) {
+          neck.rotation.x = MathUtils.lerp(neck.rotation.x, targetX, 0.05)
+          neck.rotation.y = MathUtils.lerp(neck.rotation.y, targetY, 0.05)
+        }
       }
-    }
-    if (vrm && vrm.expressionManager) {
-      const time = state.clock.elapsedTime
-      if (time >= blinkState.current.nextBlinkTime) {
-        vrm.expressionManager.setValue('blink', 1.0)
-        setTimeout(() => { if (vrm.expressionManager) vrm.expressionManager.setValue('blink', 0.0) }, 150)
-        blinkState.current.nextBlinkTime = time + Math.random() * 4 + 2
+      if (vrm && vrm.expressionManager) {
+        const time = state.clock.elapsedTime
+        if (time >= blinkState.current.nextBlinkTime) {
+          vrm.expressionManager.setValue('blink', 1.0)
+          setTimeout(() => { if (vrm.expressionManager) vrm.expressionManager.setValue('blink', 0.0) }, 150)
+          blinkState.current.nextBlinkTime = time + Math.random() * 4 + 2
+        }
       }
-    }
-    if (vrm && vrm.humanoid) {
-      const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
-      const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
-      if (leftArm) leftArm.rotation.z = -1.2
-      if (rightArm) rightArm.rotation.z = 1.2
+      if (vrm && vrm.humanoid) {
+        const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
+        const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
+        if (leftArm) leftArm.rotation.z = -1.2
+        if (rightArm) rightArm.rotation.z = 1.2
+      }
+    } catch (e) {
+      console.error('VRM Frame Error:', e)
     }
   })
 
