@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
+const STORAGE_EVENT = 'mapa-storage'
+
 export function useLocalStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(() => {
     try {
@@ -13,9 +15,12 @@ export function useLocalStorage(key, initialValue) {
 
   const setValue = useCallback((value) => {
     try {
-      setStoredValue(prev => {
+      setStoredValue((prev) => {
         const valueToStore = value instanceof Function ? value(prev) : value
         window.localStorage.setItem(key, JSON.stringify(valueToStore))
+        window.dispatchEvent(
+          new CustomEvent(STORAGE_EVENT, { detail: { key, value: valueToStore } })
+        )
         return valueToStore
       })
     } catch (error) {
@@ -24,12 +29,14 @@ export function useLocalStorage(key, initialValue) {
   }, [key])
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(storedValue))
-    } catch (error) {
-      console.error('Error syncing localStorage:', error)
+    const handler = (e) => {
+      if (e.detail.key === key) {
+        setStoredValue(e.detail.value)
+      }
     }
-  }, [key, storedValue])
+    window.addEventListener(STORAGE_EVENT, handler)
+    return () => window.removeEventListener(STORAGE_EVENT, handler)
+  }, [key])
 
   return [storedValue, setValue]
 }

@@ -1,0 +1,96 @@
+/* ── Color themes ─────────────────────────────────────────── */
+[data-color-theme="default"] {
+  --color-neutral:  #818cf8;
+  --color-thinking: #67e8f9;
+  --color-focused:  #93c5fd;
+  --color-confused: #fde047;
+  --color-happy:    #4ade80;
+}
+
+[data-color-theme="cyberpunk"] {
+  --color-neutral:  #7109aa;
+  --color-thinking: #f72585;
+  --color-focused:  #4cc9f0;
+  --color-confused: #e63946;
+  --color-happy:    #39ff14;
+}
+
+[data-color-theme="monochrome"] {
+  --color-neutral:  #9ca3af;
+  --color-thinking: #d1d5db;
+  --color-focused:  #f9fafb;
+  --color-confused: #6b7280;
+  --color-happy:    #ffffff;
+}
+
+/* ── Bar container ────────────────────────────────────────── */
+.waveform-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 80px;
+}
+
+/* ── Individual bar ───────────────────────────────────────── */
+.bar {
+  display: block;
+  width: 8px;
+  height: 80px;
+  border-radius: 4px;
+  background-color: var(--waveform-color, #818cf8);
+  transform-origin: bottom center;
+  transform: scaleY(0.2) translateZ(0);
+  will-change: transform;
+  animation: wave 1.6s ease-in-out infinite;
+}
+
+/* ── Keyframe: transform only ─────────────────────────────── */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.2) translateZ(0); }
+  50%       { transform: scaleY(1.0) translateZ(0); }
+}
+
+/* ── Staggered delays for wave illusion ───────────────────── */
+.bar-0 { animation-delay: 0.00s; }
+.bar-1 { animation-delay: 0.12s; }
+.bar-2 { animation-delay: 0.24s; }
+.bar-3 { animation-delay: 0.36s; }
+.bar-4 { animation-delay: 0.24s; }
+.bar-5 { animation-delay: 0.12s; }
+
+/* ── Emotion classes: color + speed ──────────────────────── */
+
+.waveform-neutral .bar {
+  --waveform-color: var(--color-neutral);
+  animation-duration: 1.6s;
+}
+
+.waveform-thinking .bar {
+  --waveform-color: var(--color-thinking);
+  animation-duration: 0.55s;
+}
+
+/* focused: bars frozen at mid-height */
+.waveform-focused .bar {
+  --waveform-color: var(--color-focused);
+  animation: none;
+  transform: scaleY(0.6) translateZ(0);
+}
+
+.waveform-confused .bar {
+  --waveform-color: var(--color-confused);
+  animation-duration: 0.9s;
+}
+
+/* confused: scramble each bar's delay to break the wave pattern */
+.waveform-confused .bar-0 { animation-delay: 0.00s; }
+.waveform-confused .bar-1 { animation-delay: 0.41s; }
+.waveform-confused .bar-2 { animation-delay: 0.07s; }
+.waveform-confused .bar-3 { animation-delay: 0.55s; }
+.waveform-confused .bar-4 { animation-delay: 0.19s; }
+.waveform-confused .bar-5 { animation-delay: 0.33s; }
+
+.waveform-happy .bar {
+  --waveform-color: var(--color-happy);
+  animation-duration: 1.0s;
+}

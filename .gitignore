@@ -11,6 +11,8 @@
 .claude/settings.json
 CLAUDE.md
 .claude/*
+.mcp.json
+
 
 # Gemini Code lokale Einstellungen
 GEMINI.md
@@ -32,6 +34,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Python
+pyproject.toml
 __pycache__/
 *.pyc
 *.pyo

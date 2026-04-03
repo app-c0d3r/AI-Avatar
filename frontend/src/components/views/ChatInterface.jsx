@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
+
 import { useAvatar } from '@/context/AvatarContext'
 import { useChat, createMessage } from '@/context/ChatContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import MiniAvatar from '@/components/chat/MiniAvatar'
 
 function ChatHistorySidebar() {
   const { sessions, activeSessionId, createNewSession, deleteSession, setActiveSession } = useChat()
@@ -91,6 +92,7 @@ export default function ChatInterface() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const textareaRef = useRef(null)
 
   // Auto-create session if none exists
   useEffect(() => {
@@ -114,6 +116,7 @@ export default function ChatInterface() {
     const newMessages = [...(activeSession?.messages || []), userMessage]
 
     setInput('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setIsLoading(true)
 
     // Update session with user message (this will generate title if first message)
@@ -217,17 +220,16 @@ export default function ChatInterface() {
 
       {/* Right Column - Chat Area */}
       <div className="flex-1 flex flex-col h-full relative">
-        {/* Floating Avatar Overlay (only in floating mode) */}
-        {avatarDisplayMode === 'floating' && (
-          <div className="absolute top-4 right-4 z-10">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/50 to-accent/50 border-2 border-primary shadow-lg flex items-center justify-center">
-              <span className="text-2xl">🤖</span>
-            </div>
+
+        {/* Avatar Header Area */}
+        <div className="shrink-0 p-6 flex justify-start">
+          <div className="rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+            <MiniAvatar />
           </div>
-        )}
+        </div>
 
         {/* Message History - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center text-muted-foreground">
@@ -237,18 +239,25 @@ export default function ChatInterface() {
             </div>
           ) : (
             <>
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
-                >
-                  <Card className={`max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : ''}`}>
-                    <CardContent className="p-3">
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
+              {messages.map((msg, idx) =>
+                msg.role === 'user' ? (
+                  <div key={idx} className="flex justify-end mb-4">
+                    <Card className="max-w-[80%] bg-primary text-primary-foreground">
+                      <CardContent className="p-3">
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <div key={idx} className="flex items-start mb-6">
+                    <Card className="max-w-[80%]">
+                      <CardContent className="p-3">
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              )}
               {isLoading && messages[messages.length - 1]?.content === '' && (
                 <div className="flex justify-start mb-4">
                   <Card>
@@ -265,14 +274,19 @@ export default function ChatInterface() {
 
         {/* Input Area - Fixed Bottom */}
         <div className="p-4 border-t shrink-0">
-          <div className="flex gap-2 items-center">
-            <Input
+          <div className="flex gap-2 items-end">
+            <textarea
+              ref={textareaRef}
               placeholder="Type your message..."
-              className="flex-1"
+              rows={1}
+              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-h-[40px] max-h-[150px]"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                e.target.style.height = 'auto'
+                e.target.style.height = `${e.target.scrollHeight}px`
+              }}
               onKeyDown={handleKeyDown}
-              disabled={isLoading}
             />
             <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
               Send
