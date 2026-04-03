@@ -307,6 +307,7 @@ export default function AvatarStudio() {
   const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
   const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
   const [avatar3DModelSettings, setAvatar3DModelSettings] = useLocalStorage('avatar3DModelSettings', {})
+  const [previewResetKey, setPreviewResetKey] = useState(0)
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
   const [isUploading3D, setIsUploading3D]     = useState(false)
   const [systemPrompt, setSystemPrompt]       = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
@@ -338,6 +339,7 @@ export default function AvatarStudio() {
     })
     setAvatar3DScale(2.5)
     setAvatar3DYOffset(-3.5)
+    setPreviewResetKey(k => k + 1)
   }
 
   const currentAudioRef = useRef(null)
@@ -530,7 +532,7 @@ export default function AvatarStudio() {
                           const camZ  = Math.max(1.2, 0.8 * avatar3DScale)
                           return (
                             <Canvas
-                              key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}`}
+                              key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}-${previewResetKey}`}
                               camera={{ position: [0, faceY, camZ], fov: 45 }}
                             >
                               <ambientLight intensity={1.5} />
@@ -603,7 +605,7 @@ export default function AvatarStudio() {
                       onChange={(e) => {
                         const val = Number(e.target.value)
                         setAvatar3DScale(val)
-                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: val, yOffset: avatar3DYOffset } }))
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: val, yOffset: (prev[avatar3DUrl]?.yOffset ?? avatar3DYOffset) } }))
                       }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
@@ -625,7 +627,7 @@ export default function AvatarStudio() {
                       onChange={(e) => {
                         const val = Number(e.target.value)
                         setAvatar3DYOffset(val)
-                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: avatar3DScale, yOffset: val } }))
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: (prev[avatar3DUrl]?.scale ?? avatar3DScale), yOffset: val } }))
                       }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
