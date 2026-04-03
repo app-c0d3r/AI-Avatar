@@ -1,4 +1,4 @@
-import { Component, ReactNode, useState, Suspense } from 'react'
+import { Component, ReactNode, useState, Suspense, memo } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
 import { CubeAvatar, SwarmAvatar, Swarm2Avatar, WaveAvatar, GhostAvatar, CoreAvatar, DNAAvatar, GLTFAvatar } from '@/components/3d/AvatarForms'
@@ -115,7 +115,7 @@ function getActiveSize(config: AvatarConfig): number {
   }
 }
 
-export default function MiniAvatar() {
+const MiniAvatar = () => {
   const [config] = useState<AvatarConfig>(readConfig)
   const [avatarMode]       = useLocalStorage('avatarMode', 'form')
   const [avatar2DUrl]      = useLocalStorage('avatar2DUrl', '')
@@ -143,7 +143,7 @@ export default function MiniAvatar() {
 
   const formAvatar = (
     <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40" style={sizeStyle}>
-      <Canvas camera={{ position: [0, 0, calculatedZPosition], fov: 45 }} frameloop="always">
+      <Canvas camera={{ position: [0, 0, calculatedZPosition], fov: 45 }} frameloop="always" dpr={[1, 2]}>
         <ambientLight intensity={0.4} />
         <directionalLight position={[10, 10, 10]} intensity={0.8} />
         <AvatarScene config={config} />
@@ -158,7 +158,7 @@ export default function MiniAvatar() {
     return (
       <AvatarErrorBoundary fallback={formAvatar}>
         <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40" style={sizeStyle}>
-          <Canvas camera={{ position: [0, 0, 3], fov: 45 }} frameloop="always">
+          <Canvas camera={{ position: [0, 0, 3], fov: 45 }} frameloop="always" dpr={[1, 2]}>
             <ambientLight intensity={1.5} />
             <directionalLight position={[2, 2, 2]} intensity={2} />
             <Suspense fallback={null}>
@@ -172,3 +172,5 @@ export default function MiniAvatar() {
 
   return formAvatar
 }
+
+export default memo(MiniAvatar)

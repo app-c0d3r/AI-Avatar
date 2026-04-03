@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
+
 import { useAvatar } from '@/context/AvatarContext'
 import { useChat, createMessage } from '@/context/ChatContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
@@ -212,10 +212,6 @@ export default function ChatInterface() {
   }
 
   const messages = activeSession?.messages || []
-  const lastAssistantIdx = messages.reduce(
-    (acc, msg, idx) => (msg.role === 'assistant' ? idx : acc),
-    -1
-  )
 
   return (
     <div className="flex flex-row h-full w-full">
@@ -224,8 +220,16 @@ export default function ChatInterface() {
 
       {/* Right Column - Chat Area */}
       <div className="flex-1 flex flex-col h-full relative">
+
+        {/* Avatar Header Area */}
+        <div className="shrink-0 p-6 flex justify-start">
+          <div className="rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+            <MiniAvatar />
+          </div>
+        </div>
+
         {/* Message History - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center text-muted-foreground">
@@ -245,14 +249,7 @@ export default function ChatInterface() {
                     </Card>
                   </div>
                 ) : (
-                  <div key={idx} className="flex flex-col items-start gap-2 mb-6">
-                    {idx === lastAssistantIdx ? (
-                      <motion.div layoutId="wandering-avatar">
-                        <MiniAvatar />
-                      </motion.div>
-                    ) : (
-                      <div className="w-20 h-20" />
-                    )}
+                  <div key={idx} className="flex items-start mb-6">
                     <Card className="max-w-[80%]">
                       <CardContent className="p-3">
                         <p className="text-sm whitespace-pre-wrap">{msg.content}</p>

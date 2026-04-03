@@ -1,0 +1,204 @@
+/* ── Color themes ─────────────────────────────────────────── */
+[data-color-theme="default"] {
+  --color-neutral:  #818cf8;
+  --color-thinking: #67e8f9;
+  --color-focused:  #93c5fd;
+  --color-confused: #fde047;
+  --color-happy:    #4ade80;
+}
+[data-color-theme="cyberpunk"] {
+  --color-neutral:  #7109aa;
+  --color-thinking: #f72585;
+  --color-focused:  #4cc9f0;
+  --color-confused: #e63946;
+  --color-happy:    #39ff14;
+}
+[data-color-theme="monochrome"] {
+  --color-neutral:  #9ca3af;
+  --color-thinking: #d1d5db;
+  --color-focused:  #f9fafb;
+  --color-confused: #6b7280;
+  --color-happy:    #ffffff;
+}
+
+/* ── Emotion → CSS var ────────────────────────────────────── */
+.emotion-shape-neutral  { --shape-color: var(--color-neutral);  }
+.emotion-shape-thinking { --shape-color: var(--color-thinking); }
+.emotion-shape-focused  { --shape-color: var(--color-focused);  }
+.emotion-shape-confused { --shape-color: var(--color-confused); }
+.emotion-shape-happy    { --shape-color: var(--color-happy);    }
+
+/* ── Base shape ───────────────────────────────────────────── */
+.minimalist-shape {
+  width: 120px;
+  height: 120px;
+  background-color: var(--shape-color);
+  transform: translateZ(0);
+  will-change: transform, border-radius;
+  transition:
+    background-color 0.7s ease-in-out,
+    border-radius    0.7s ease-in-out,
+    box-shadow       0.7s ease-in-out,
+    transform        0.5s ease-in-out;
+}
+
+/* ── Shared keyframes ─────────────────────────────────────── */
+@keyframes spin-slow  { to { transform: rotate(360deg) translateZ(0); } }
+@keyframes spin-fast  { to { transform: rotate(360deg) translateZ(0); } }
+@keyframes float-up   { 0%,100% { transform: translateY(0)    translateZ(0); }
+                         50%     { transform: translateY(-14px) translateZ(0); } }
+@keyframes kid-blob   { 0%,100% { border-radius: 60% 40% 50% 30% / 40% 60% 30% 50%; }
+                         33%     { border-radius: 40% 60% 30% 50% / 60% 40% 50% 30%; }
+                         66%     { border-radius: 50% 50% 60% 40% / 30% 60% 40% 60%; } }
+@keyframes flicker    { 0%,100% { opacity: 1; } 45% { opacity: 0.7; } 50% { opacity: 1; } 55% { opacity: 0.5; } }
+@keyframes scan       { 0% { background-position: 0 -100%; } 100% { background-position: 0 200%; } }
+@keyframes neon-pulse { 0%,100% { box-shadow: 0 0 16px var(--shape-color), 0 0 32px var(--shape-color); }
+                         50%     { box-shadow: 0 0 28px var(--shape-color), 0 0 56px var(--shape-color), 0 0 80px var(--shape-color); } }
+@keyframes retro-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0.85; } }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 1 — COMIC
+   Bold halftone circle with thick ink border
+   ══════════════════════════════════════════════════════════ */
+[data-style="comic"] .minimalist-shape {
+  border-radius: 50%;
+  outline: 4px solid #111827;
+  outline-offset: 3px;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.18) 1px, transparent 1px);
+  background-size: 9px 9px;
+}
+[data-style="comic"] .emotion-shape-thinking { animation: spin-slow 6s linear infinite; }
+[data-style="comic"] .emotion-shape-confused { animation: kid-blob 1.4s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 2 — ANIME
+   Clean circle with inner shine highlight
+   ══════════════════════════════════════════════════════════ */
+[data-style="anime"] .minimalist-shape {
+  border-radius: 50%;
+  box-shadow:
+    inset -18px -18px 28px rgba(0,0,0,0.35),
+    inset 12px 12px 20px rgba(255,255,255,0.22);
+}
+[data-style="anime"] .emotion-shape-happy   { transform: scale(1.12) translateZ(0); }
+[data-style="anime"] .emotion-shape-focused { box-shadow: inset -18px -18px 28px rgba(0,0,0,0.5), inset 12px 12px 20px rgba(255,255,255,0.3), 0 0 28px var(--shape-color); }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 3 — MATRIX
+   Always-green, dark square, scanline + flicker
+   ══════════════════════════════════════════════════════════ */
+[data-style="matrix"] .minimalist-shape {
+  border-radius: 4px;
+  background-color: #050f05 !important;
+  border: 1px solid #00ff41;
+  box-shadow: 0 0 18px #00ff41, 0 0 36px rgba(0,255,65,0.3), inset 0 0 18px rgba(0,255,65,0.08);
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,255,65,0.03) 3px, rgba(0,255,65,0.03) 4px);
+  animation: flicker 4s ease-in-out infinite;
+}
+[data-style="matrix"] .emotion-shape-thinking { box-shadow: 0 0 28px #00ff41, 0 0 56px rgba(0,255,65,0.5); animation: flicker 1s ease-in-out infinite; }
+[data-style="matrix"] .emotion-shape-confused { border-color: #ff3300; box-shadow: 0 0 18px #ff3300; animation: flicker 0.4s linear infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 4 — TECHNO
+   Hexagon with neon glow, sharp edges
+   ══════════════════════════════════════════════════════════ */
+[data-style="techno"] .minimalist-shape {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  border-radius: 0;
+  box-shadow: 0 0 24px var(--shape-color), 0 0 48px rgba(0,0,0,0.6);
+}
+[data-style="techno"] .emotion-shape-thinking { animation: spin-slow 3s linear infinite; }
+[data-style="techno"] .emotion-shape-confused { clip-path: polygon(50% 0%, 85% 15%, 100% 50%, 85% 85%, 50% 100%, 15% 85%, 0% 50%, 15% 15%); }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 5 — KID
+   Playful morphing blob, pastel vibe, big and bouncy
+   ══════════════════════════════════════════════════════════ */
+[data-style="kid"] .minimalist-shape {
+  width: 140px;
+  height: 140px;
+  border-radius: 60% 40% 50% 30% / 40% 60% 30% 50%;
+  animation: kid-blob 3s ease-in-out infinite;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+[data-style="kid"] .emotion-shape-happy   { animation: kid-blob 1.5s ease-in-out infinite; transform: scale(1.1) translateZ(0); }
+[data-style="kid"] .emotion-shape-focused { animation: none; border-radius: 50%; }
+[data-style="kid"] .emotion-shape-thinking { animation: kid-blob 1s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 6 — COOL
+   Ultra minimal dark circle, thin accent ring
+   ══════════════════════════════════════════════════════════ */
+[data-style="cool"] .minimalist-shape {
+  border-radius: 50%;
+  opacity: 0.92;
+  box-shadow: 0 0 0 1px var(--shape-color), 0 12px 32px rgba(0,0,0,0.5);
+  background-color: rgba(0,0,0,0.7) !important;
+  border: 2px solid var(--shape-color);
+}
+[data-style="cool"] .emotion-shape-thinking { animation: spin-slow 8s linear infinite; opacity: 1; }
+[data-style="cool"] .emotion-shape-focused  { box-shadow: 0 0 0 2px var(--shape-color), 0 0 20px var(--shape-color); }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 7 — SMART
+   Rotating diamond, structured, data-viz aesthetic
+   ══════════════════════════════════════════════════════════ */
+[data-style="smart"] .minimalist-shape {
+  border-radius: 6px;
+  transform: rotate(45deg) scale(0.82) translateZ(0);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.15), 0 4px 24px rgba(0,0,0,0.4);
+}
+[data-style="smart"] .emotion-shape-thinking { animation: spin-slow 4s linear infinite; }
+[data-style="smart"] .emotion-shape-focused  { transform: rotate(45deg) scale(0.95) translateZ(0); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3), 0 4px 32px var(--shape-color); }
+[data-style="smart"] .emotion-shape-confused { border-radius: 50%; transform: rotate(0deg) scale(0.85) translateZ(0); }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 8 — RETRO
+   8-bit pixel aesthetic, no anti-aliasing, blocky
+   ══════════════════════════════════════════════════════════ */
+[data-style="retro"] .minimalist-shape {
+  border-radius: 0;
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  box-shadow:
+    -8px -8px 0 0 var(--shape-color),  8px -8px 0 0 var(--shape-color),
+    -8px  8px 0 0 var(--shape-color),  8px  8px 0 0 var(--shape-color),
+     0  -16px 0 0 var(--shape-color),  0   16px 0 0 var(--shape-color),
+    -16px  0  0 0 var(--shape-color),  16px  0  0 0 var(--shape-color);
+  animation: retro-blink 2s step-end infinite;
+}
+[data-style="retro"] .emotion-shape-thinking { animation: retro-blink 0.4s step-end infinite; }
+[data-style="retro"] .emotion-shape-confused { box-shadow: -8px -8px 0 0 var(--shape-color), 16px -8px 0 0 var(--shape-color), -16px 8px 0 0 var(--shape-color), 8px 8px 0 0 var(--shape-color); }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 9 — GHOST
+   Translucent, pale, floating — ethereal spirit
+   ══════════════════════════════════════════════════════════ */
+[data-style="ghost"] .minimalist-shape {
+  border-radius: 48% 52% 44% 56% / 52% 46% 54% 48%;
+  background-color: rgba(240,240,255,0.22) !important;
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow: 0 0 40px rgba(200,200,255,0.25), 0 0 80px rgba(200,200,255,0.1);
+  animation: float-up 4s ease-in-out infinite;
+  backdrop-filter: blur(2px);
+}
+[data-style="ghost"] .emotion-shape-thinking { animation: float-up 2s ease-in-out infinite; opacity: 0.6; }
+[data-style="ghost"] .emotion-shape-happy    { background-color: rgba(200,255,220,0.28) !important; }
+[data-style="ghost"] .emotion-shape-confused { border-radius: 30% 70% 60% 40% / 50% 40% 60% 50%; }
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE 10 — NEON
+   Outline only, pulsing glow rings, dark void inside
+   ══════════════════════════════════════════════════════════ */
+[data-style="neon"] .minimalist-shape {
+  border-radius: 50%;
+  background-color: transparent !important;
+  border: 2px solid var(--shape-color);
+  box-shadow: 0 0 16px var(--shape-color), 0 0 32px var(--shape-color);
+  animation: neon-pulse 2.5s ease-in-out infinite;
+}
+[data-style="neon"] .emotion-shape-thinking { animation: neon-pulse 1s ease-in-out infinite, spin-slow 6s linear infinite; }
+[data-style="neon"] .emotion-shape-focused  { border-width: 3px; box-shadow: 0 0 24px var(--shape-color), 0 0 48px var(--shape-color), 0 0 72px var(--shape-color); animation: neon-pulse 2s ease-in-out infinite; }
+[data-style="neon"] .emotion-shape-confused { border-radius: 0; animation: neon-pulse 0.6s ease-in-out infinite; }

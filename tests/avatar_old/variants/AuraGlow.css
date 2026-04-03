@@ -1,0 +1,102 @@
+/* ── Color themes ─────────────────────────────────────────── */
+[data-color-theme="default"] {
+  --color-neutral:   #818cf8;
+  --color-thinking:  #67e8f9;
+  --color-focused:   #93c5fd;
+  --color-confused:  #fde047;
+  --color-happy:     #4ade80;
+}
+
+[data-color-theme="cyberpunk"] {
+  --color-neutral:   #7109aa;
+  --color-thinking:  #f72585;
+  --color-focused:   #4cc9f0;
+  --color-confused:  #e63946;
+  --color-happy:     #39ff14;
+}
+
+[data-color-theme="monochrome"] {
+  --color-neutral:   #9ca3af;
+  --color-thinking:  #d1d5db;
+  --color-focused:   #f9fafb;
+  --color-confused:  #6b7280;
+  --color-happy:     #ffffff;
+}
+
+/* ── Motion container ─────────────────────────────────────── */
+/* Only transform animates here — no color, no blur, no opacity */
+.aura-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* ── Color layer ──────────────────────────────────────────── */
+/* blur is static (never changes) — only background-color and opacity transition */
+.aura-color-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  filter: blur(40px);
+  transition:
+    background-color 0.8s ease-in-out,
+    opacity          0.8s ease-in-out;
+}
+
+/* ── Keyframes: transform only ────────────────────────────── */
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1.00) translateZ(0); }
+  50%       { transform: scale(1.08) translateZ(0); }
+}
+
+@keyframes spin-pulse {
+  0%   { transform: scale(1.00) rotate(0deg)   translateZ(0); }
+  25%  { transform: scale(1.10) rotate(90deg)  translateZ(0); }
+  50%  { transform: scale(1.04) rotate(180deg) translateZ(0); }
+  75%  { transform: scale(1.12) rotate(270deg) translateZ(0); }
+  100% { transform: scale(1.00) rotate(360deg) translateZ(0); }
+}
+
+@keyframes glitch-shake {
+  0%   { transform: translate(0px,    0px)  scale(1.00) translateZ(0); }
+  10%  { transform: translate(7px,   -5px)  scale(0.97) translateZ(0); }
+  22%  { transform: translate(-9px,   3px)  scale(1.03) translateZ(0); }
+  33%  { transform: translate(5px,    8px)  scale(0.96) translateZ(0); }
+  47%  { transform: translate(-6px,  -2px)  scale(1.04) translateZ(0); }
+  58%  { transform: translate(10px,   4px)  scale(0.98) translateZ(0); }
+  70%  { transform: translate(-4px,  -7px)  scale(1.02) translateZ(0); }
+  83%  { transform: translate(3px,    5px)  scale(0.99) translateZ(0); }
+  100% { transform: translate(0px,    0px)  scale(1.00) translateZ(0); }
+}
+
+@keyframes bounce-up {
+  0%   { transform: translateY(0px)   scale(1.00) translateZ(0); }
+  30%  { transform: translateY(-20px) scale(1.10) translateZ(0); }
+  55%  { transform: translateY(-8px)  scale(1.05) translateZ(0); }
+  75%  { transform: translateY(-14px) scale(1.08) translateZ(0); }
+  100% { transform: translateY(0px)   scale(1.00) translateZ(0); }
+}
+
+/* ── Motion classes (animation on container) ──────────────── */
+
+.emotion-move-neutral  { animation: breathe 4s ease-in-out infinite; }
+.emotion-move-thinking { animation: spin-pulse 1.5s linear infinite; }
+.emotion-move-focused  { animation: none; transform: scale(1.06) translateZ(0); }
+.emotion-move-confused { animation: glitch-shake 2s ease-in-out infinite; }
+.emotion-move-happy    {
+  animation:
+    bounce-up 0.6s ease-out 1,
+    breathe   3.5s ease-in-out 0.6s infinite;
+}
+
+/* ── Color classes (background-color on layer) ────────────── */
+
+.emotion-color-neutral  { background-color: var(--color-neutral);  opacity: 0.85; }
+.emotion-color-thinking { background-color: var(--color-thinking); opacity: 0.90; }
+.emotion-color-focused  { background-color: var(--color-focused);  opacity: 0.95; }
+.emotion-color-confused { background-color: var(--color-confused); opacity: 0.80; }
+.emotion-color-happy    { background-color: var(--color-happy);    opacity: 0.90; }
