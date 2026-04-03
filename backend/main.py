@@ -1,10 +1,11 @@
 import os
 import json
 import logging
+import edge_tts
 from typing import Optional, AsyncGenerator
 from dotenv import load_dotenv
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -47,6 +48,12 @@ DEFAULT_MODELS = {
     "openrouter": os.getenv("DEFAULT_OPENROUTER_MODEL", "openrouter/free"),
     "ollama": os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:latest"),
 }
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "female"
+    language: str = "en-US"
 
 
 class Settings(BaseModel):
@@ -221,6 +228,29 @@ async def chat(request: ChatRequest):
         stream_with_fallback(primary_client, model, messages, provider),
         media_type="text/event-stream"
     )
+
+
+@app.post("/api/tts")
+async def text_to_speech(request: TTSRequest):
+    """Generate audio from text using edge-tts and return it as an MPEG stream."""
+    try:
+        is_german = request.language.startswith("de")
+        if request.voice == "male":
+            voice_name = "de-DE-ConradNeural" if is_german else "en-US-GuyNeural"
+        else:
+            voice_name = "de-DE-AmalaNeural" if is_german else "en-US-AriaNeural"
+
+        communicate = edge_tts.Communicate(request.text, voice_name)
+        audio_data = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_data += chunk["data"]
+
+        logger.info("TTS request: voice=%s lang=%s text_len=%d", voice_name, request.language, len(request.text))
+        return Response(content=audio_data, media_type="audio/mpeg")
+    except Exception as e:
+        logger.error("TTS error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/upload/model")

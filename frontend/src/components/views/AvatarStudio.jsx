@@ -1,4 +1,4 @@
-import { Component, useState, useEffect, Suspense } from 'react'
+import { Component, useState, useEffect, useRef, Suspense } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
 
@@ -312,25 +312,34 @@ export default function AvatarStudio() {
   const [voiceProfile, setVoiceProfile]       = useLocalStorage('mapa-voiceProfile', 'female')
   const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
 
-  const handleTestVoice = () => {
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance('Hello! I am your AI assistant. This is how my voice sounds.')
-    if (voiceProfile === 'robot') {
-      utterance.pitch = 0.2
-      utterance.rate = 0.9
-    } else {
-      const voices = window.speechSynthesis.getVoices()
-      if (voiceProfile === 'female') {
-        utterance.pitch = 1.2
-        const match = voices.find(v => /female|samantha|victoria|zira|karen|moira|tessa/i.test(v.name))
-        if (match) utterance.voice = match
-      } else if (voiceProfile === 'male') {
-        utterance.pitch = 0.8
-        const match = voices.find(v => /male|david|daniel|alex|fred|jorge|rishi/i.test(v.name))
-        if (match) utterance.voice = match
-      }
+  const currentAudioRef = useRef(null)
+
+  const handleTestVoice = async () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
     }
-    window.speechSynthesis.speak(utterance)
+
+    try {
+      const response = await fetch('http://localhost:8000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'Hello! I am your AI assistant. This is how my voice sounds.',
+          voice: voiceProfile,
+          language: 'en-US'
+        })
+      })
+      if (!response.ok) return
+      const blob = await response.blob()
+      const audioUrl = URL.createObjectURL(blob)
+      const audio = new Audio(audioUrl)
+      currentAudioRef.current = audio
+      audio.play()
+      window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
+    } catch {
+      // TTS backend unavailable — fail silently
+    }
   }
 
   const handleTabClick = (tab) => {

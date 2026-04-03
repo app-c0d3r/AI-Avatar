@@ -97,6 +97,7 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const currentAudioRef = useRef(null)
 
   // Auto-create session if none exists
   useEffect(() => {
@@ -116,45 +117,39 @@ export default function ChatInterface() {
   const toggleMute = () => {
     const newState = !autoRead
     setAutoRead(newState)
-    if (!newState) window.speechSynthesis.cancel()
+    if (!newState && currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
   }
 
-  const speakText = (text, force = false) => {
+  const speakText = async (text, force = false) => {
     if (!force && !autoRead) return
-    if (!window.speechSynthesis || !text) return
+    if (!text) return
 
-    window.speechSynthesis.cancel()
-
-    const detectedLang = /[äöüßÄÖÜ]/.test(text) ? 'de-DE' : 'en-US'
-    const langPrefix = detectedLang.split('-')[0]
-
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = detectedLang
-
-    if (voiceProfile === 'robot') {
-      utterance.pitch = 0.2
-      utterance.rate = 0.9
-    } else {
-      const voices = window.speechSynthesis.getVoices()
-      const langVoices = voices.filter(v => v.lang.startsWith(langPrefix))
-      if (voiceProfile === 'female') {
-        utterance.pitch = 1.2
-        utterance.rate = 1.0
-        const match = langVoices.find(v =>
-          /female|samantha|victoria|zira|karen|moira|tessa/i.test(v.name)
-        ) || langVoices[0]
-        if (match) utterance.voice = match
-      } else if (voiceProfile === 'male') {
-        utterance.pitch = 0.8
-        utterance.rate = 1.0
-        const match = langVoices.find(v =>
-          /male|david|daniel|alex|fred|jorge|rishi/i.test(v.name)
-        ) || langVoices[0]
-        if (match) utterance.voice = match
-      }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
     }
 
-    window.speechSynthesis.speak(utterance)
+    const detectedLang = /[äöüßÄÖÜ]/.test(text) ? 'de-DE' : 'en-US'
+
+    try {
+      const response = await fetch('http://localhost:8000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: voiceProfile, language: detectedLang })
+      })
+      if (!response.ok) return
+      const blob = await response.blob()
+      const audioUrl = URL.createObjectURL(blob)
+      const audio = new Audio(audioUrl)
+      currentAudioRef.current = audio
+      audio.play()
+      window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
+    } catch {
+      // TTS backend unavailable — fail silently
+    }
   }
 
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text) }

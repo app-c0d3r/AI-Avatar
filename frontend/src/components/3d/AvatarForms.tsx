@@ -391,6 +391,24 @@ interface GLTFAvatarProps {
 
 export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps) {
   const [vrm, setVrm] = useState<any>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+
+  useEffect(() => {
+    const handleAudioPlay = (e: Event) => {
+      const audio = (e as CustomEvent).detail as HTMLAudioElement
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 256
+      const source = audioCtx.createMediaElementSource(audio)
+      source.connect(analyser)
+      analyser.connect(audioCtx.destination)
+      analyserRef.current = analyser
+    }
+    window.addEventListener('vrm-audio-play', handleAudioPlay)
+    return () => {
+      window.removeEventListener('vrm-audio-play', handleAudioPlay)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -413,6 +431,15 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
     if (vrm) {
       const dt = Math.min(delta, 0.033)
       vrm.update(dt)
+    }
+    if (vrm && vrm.expressionManager && analyserRef.current) {
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+      analyserRef.current.getByteFrequencyData(dataArray)
+      let sum = 0
+      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i]
+      const volume = sum / dataArray.length
+      const mouthOpen = Math.min(volume / 40, 1.0)
+      vrm.expressionManager.setValue('aa', mouthOpen)
     }
     if (vrm && vrm.humanoid) {
       const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
