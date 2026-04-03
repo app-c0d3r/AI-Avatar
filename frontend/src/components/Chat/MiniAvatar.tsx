@@ -122,7 +122,7 @@ const MiniAvatar = () => {
   const [avatar3DUrl]      = useLocalStorage('avatar3DUrl', '')
   const [avatar3DFileName] = useLocalStorage('avatar3DFileName', '')
   const [avatar3DScaleRaw]   = useLocalStorage('avatar3DScale', 2.5)
-  const [avatar3DYOffsetRaw] = useLocalStorage('avatar3DYOffset', -2.0)
+  const [avatar3DYOffsetRaw] = useLocalStorage('avatar3DYOffset', -3.5)
   const [chatAvatarSizeRaw]  = useLocalStorage('chatAvatarSize', 80)
   const avatar3DScale  = Number(avatar3DScaleRaw)
   const avatar3DYOffset = Number(avatar3DYOffsetRaw)
