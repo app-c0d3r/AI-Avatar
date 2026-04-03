@@ -151,19 +151,29 @@ const MiniAvatar = () => {
   )
 
   const is3D = avatarMode === '3d' && !!avatar3DUrl
-  const isVRM = !!avatar3DUrl && avatar3DFileName.toLowerCase().endsWith('.vrm')
 
-  if (is3D || isVRM) {
+  if (is3D) {
     return (
       <AvatarErrorBoundary fallback={formAvatar}>
         <div className="flex-shrink-0 rounded-full overflow-hidden border border-primary/50 shadow-lg bg-black/40" style={sizeStyle}>
-          <Canvas camera={{ position: [0, 0, 3], fov: 45 }} frameloop="always" dpr={[1, 2]}>
-            <ambientLight intensity={1.5} />
-            <directionalLight position={[2, 2, 2]} intensity={2} />
-            <Suspense fallback={null}>
-              <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
-            </Suspense>
-          </Canvas>
+          {(() => {
+            const faceY = avatar3DYOffset + 1.5 * avatar3DScale
+            const camZ  = Math.max(1.2, 0.8 * avatar3DScale)
+            return (
+              <Canvas
+                key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}`}
+                camera={{ position: [0, faceY, camZ], fov: 45 }}
+                frameloop="always"
+                dpr={[1, 2]}
+              >
+                <ambientLight intensity={1.5} />
+                <directionalLight position={[2, 2, 2]} intensity={2} />
+                <Suspense fallback={null}>
+                  <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
+                </Suspense>
+              </Canvas>
+            )
+          })()}
         </div>
       </AvatarErrorBoundary>
     )

@@ -313,6 +313,7 @@ export default function AvatarStudio() {
   const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
 
   const currentAudioRef = useRef(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
 
   const handleTestVoice = async () => {
     if (currentAudioRef.current) {
@@ -320,6 +321,7 @@ export default function AvatarStudio() {
       currentAudioRef.current = null
     }
 
+    setIsSpeaking(true)
     try {
       const response = await fetch('http://localhost:8000/api/tts', {
         method: 'POST',
@@ -330,14 +332,16 @@ export default function AvatarStudio() {
           language: 'en-US'
         })
       })
-      if (!response.ok) return
+      if (!response.ok) { setIsSpeaking(false); return }
       const blob = await response.blob()
       const audioUrl = URL.createObjectURL(blob)
       const audio = new Audio(audioUrl)
       currentAudioRef.current = audio
+      audio.onended = () => setIsSpeaking(false)
       audio.play()
       window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
     } catch {
+      setIsSpeaking(false)
       // TTS backend unavailable — fail silently
     }
   }
@@ -493,13 +497,22 @@ export default function AvatarStudio() {
                           Failed to load
                         </div>
                       }>
-                        <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
-                          <ambientLight intensity={1.5} />
-                          <directionalLight position={[2, 2, 2]} intensity={2} />
-                          <Suspense fallback={null}>
-                            <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
-                          </Suspense>
-                        </Canvas>
+                        {(() => {
+                          const faceY = avatar3DYOffset + 1.5 * avatar3DScale
+                          const camZ  = Math.max(1.2, 0.8 * avatar3DScale)
+                          return (
+                            <Canvas
+                              key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}`}
+                              camera={{ position: [0, faceY, camZ], fov: 45 }}
+                            >
+                              <ambientLight intensity={1.5} />
+                              <directionalLight position={[2, 2, 2]} intensity={2} />
+                              <Suspense fallback={null}>
+                                <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
+                              </Suspense>
+                            </Canvas>
+                          )
+                        })()}
                       </PreviewErrorBoundary>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
@@ -646,7 +659,8 @@ export default function AvatarStudio() {
 
                     <button
                       onClick={handleTestVoice}
-                      className="mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-md hover:bg-primary/20 transition-colors"
+                      disabled={isSpeaking}
+                      className={`mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium border rounded-md transition-colors ${isSpeaking ? 'opacity-40 cursor-not-allowed bg-primary/5 text-primary/50 border-primary/10' : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'}`}
                     >
                       ▶ Test Voice
                     </button>

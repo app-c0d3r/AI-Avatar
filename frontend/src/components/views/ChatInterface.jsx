@@ -95,6 +95,7 @@ export default function ChatInterface() {
 
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
   const currentAudioRef = useRef(null)
@@ -120,6 +121,7 @@ export default function ChatInterface() {
     if (!newState && currentAudioRef.current) {
       currentAudioRef.current.pause()
       currentAudioRef.current = null
+      setIsSpeaking(false)
     }
   }
 
@@ -134,20 +136,23 @@ export default function ChatInterface() {
 
     const detectedLang = /[äöüßÄÖÜ]/.test(text) ? 'de-DE' : 'en-US'
 
+    setIsSpeaking(true)
     try {
       const response = await fetch('http://localhost:8000/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voice: voiceProfile, language: detectedLang })
       })
-      if (!response.ok) return
+      if (!response.ok) { setIsSpeaking(false); return }
       const blob = await response.blob()
       const audioUrl = URL.createObjectURL(blob)
       const audio = new Audio(audioUrl)
       currentAudioRef.current = audio
+      audio.onended = () => setIsSpeaking(false)
       audio.play()
       window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
     } catch {
+      setIsSpeaking(false)
       // TTS backend unavailable — fail silently
     }
   }
@@ -334,8 +339,8 @@ export default function ChatInterface() {
                           </button>
                           <button
                             onClick={() => speakText(msg.content, true)}
-                            disabled={!autoRead}
-                            className={`transition-opacity ${!autoRead ? 'opacity-30 cursor-not-allowed' : 'opacity-60 hover:opacity-100 cursor-pointer'} text-muted-foreground`}
+                            disabled={isSpeaking || !autoRead}
+                            className={`transition-opacity ${isSpeaking || !autoRead ? 'opacity-30 cursor-not-allowed' : 'opacity-60 hover:opacity-100 cursor-pointer'} text-muted-foreground`}
                             title="Play Audio"
                           >
                             <Play size={14} />

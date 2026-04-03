@@ -1,7 +1,8 @@
 import { useRef, useMemo, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { MathUtils } from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
 const WAVE_COUNT = 800
@@ -391,7 +392,21 @@ interface GLTFAvatarProps {
 
 export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps) {
   const [vrm, setVrm] = useState<any>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
+  const targetMouse = useRef({ x: 0, y: 0 })
+  const blinkState = useRef({ nextBlinkTime: 0 })
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      targetMouse.current.x = (event.clientX / window.innerWidth) * 2 - 1
+      targetMouse.current.y = -(event.clientY / window.innerHeight) * 2 + 1
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [])
 
   useEffect(() => {
     const handleAudioPlay = (e: Event) => {
@@ -412,15 +427,28 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
 
   useEffect(() => {
     let cancelled = false
+    setLoadError(null)
 
     const loader = new GLTFLoader()
-    loader.register((parser) => new VRMLoaderPlugin(parser))
+    loader.register((parser: any) => new VRMLoaderPlugin(parser))
 
-    loader.loadAsync(url).then((gltf) => {
-      if (!cancelled) {
-        setVrm(gltf.userData.vrm)
-      }
-    })
+    loader.loadAsync(url)
+      .then((gltf) => {
+        if (cancelled) return
+        const loaded = gltf.userData.vrm
+        if (!loaded) {
+          const msg = 'VRM data missing in GLTF userData — file may not be a valid VRM'
+          console.error('[GLTFAvatar]', msg, gltf.userData)
+          setLoadError(msg)
+        } else {
+          setVrm(loaded)
+        }
+      })
+      .catch((err: Error) => {
+        if (cancelled) return
+        console.error('[GLTFAvatar] load failed:', err)
+        setLoadError(err.message)
+      })
 
     return () => {
       cancelled = true
@@ -435,11 +463,36 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
     if (vrm && vrm.expressionManager && analyserRef.current) {
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
       analyserRef.current.getByteFrequencyData(dataArray)
-      let sum = 0
-      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i]
-      const volume = sum / dataArray.length
-      const mouthOpen = Math.min(volume / 40, 1.0)
-      vrm.expressionManager.setValue('aa', mouthOpen)
+      let maxVolume = 0
+      for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
+      }
+      const rawMouth = (maxVolume - 30) / 100
+      const targetMouthOpen = Math.max(0, Math.min(rawMouth, 1.0))
+      const currentAa = vrm.expressionManager.getValue('aa') || 0
+      vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.4))
+    }
+    if (vrm && vrm.humanoid) {
+      const head = vrm.humanoid.getNormalizedBoneNode('head')
+      const neck = vrm.humanoid.getNormalizedBoneNode('neck')
+      const targetX = targetMouse.current.y * 0.3
+      const targetY = -targetMouse.current.x * 0.5
+      if (head) {
+        head.rotation.x = MathUtils.lerp(head.rotation.x, targetX, 0.05)
+        head.rotation.y = MathUtils.lerp(head.rotation.y, targetY, 0.05)
+      }
+      if (neck) {
+        neck.rotation.x = MathUtils.lerp(neck.rotation.x, targetX, 0.05)
+        neck.rotation.y = MathUtils.lerp(neck.rotation.y, targetY, 0.05)
+      }
+    }
+    if (vrm && vrm.expressionManager) {
+      const time = state.clock.elapsedTime
+      if (time >= blinkState.current.nextBlinkTime) {
+        vrm.expressionManager.setValue('blink', 1.0)
+        setTimeout(() => { if (vrm.expressionManager) vrm.expressionManager.setValue('blink', 0.0) }, 150)
+        blinkState.current.nextBlinkTime = time + Math.random() * 4 + 2
+      }
     }
     if (vrm && vrm.humanoid) {
       const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
@@ -449,6 +502,14 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
     }
   })
 
+  if (loadError) {
+    return (
+      <mesh>
+        <sphereGeometry args={[0.4, 16, 16]} />
+        <meshStandardMaterial color="red" />
+      </mesh>
+    )
+  }
   if (!vrm) return null
 
   return (
