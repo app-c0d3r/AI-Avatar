@@ -398,6 +398,8 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed }: 
   const targetMouse = useRef({ x: 0, y: 0 })
   const blinkState = useRef({ nextBlinkTime: 0 })
   const speakingTime = useRef(0)
+  const onFitComputedRef = useRef(onFitComputed)
+  useEffect(() => { onFitComputedRef.current = onFitComputed })
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -452,18 +454,23 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed }: 
           setLoadError(msg)
         } else {
           setVrm(loaded)
-          if (onFitComputed) {
+          if (onFitComputedRef.current) {
             const box = new THREE.Box3().setFromObject(loaded.scene)
             const boxHeight = box.max.y - box.min.y
             if (boxHeight > 0) {
               loaded.scene.updateWorldMatrix(true, true)
               const headBone = loaded.humanoid?.getNormalizedBoneNode?.('head')
-              const headLocalY = headBone
-                ? (() => { const v = new THREE.Vector3(); headBone.getWorldPosition(v); return v.y })()
-                : box.min.y + boxHeight * 0.88
+              let headWorldY: number
+              if (headBone) {
+                const headPosVec = new THREE.Vector3()
+                headBone.getWorldPosition(headPosVec)
+                headWorldY = headPosVec.y
+              } else {
+                headWorldY = box.min.y + boxHeight * 0.88
+              }
               const fitScale = Math.min(Math.max(3.5 / boxHeight, 1.0), 6.0)
-              const fitYOffset = Math.min(Math.max(-headLocalY * fitScale, -8), 2)
-              onFitComputed({ scale: fitScale, yOffset: fitYOffset })
+              const fitYOffset = Math.min(Math.max(-headWorldY * fitScale, -8), 2)
+              onFitComputedRef.current({ scale: fitScale, yOffset: fitYOffset })
             }
           }
         }
