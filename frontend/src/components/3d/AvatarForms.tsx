@@ -411,7 +411,8 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
 
   useFrame((_, delta) => {
     if (vrm) {
-      vrm.update(delta)
+      const dt = Math.min(delta, 0.033)
+      vrm.update(dt)
     }
     if (vrm && vrm.humanoid) {
       const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')

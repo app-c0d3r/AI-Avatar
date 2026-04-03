@@ -312,6 +312,27 @@ export default function AvatarStudio() {
   const [voiceProfile, setVoiceProfile]       = useLocalStorage('mapa-voiceProfile', 'female')
   const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
 
+  const handleTestVoice = () => {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance('Hello! I am your AI assistant. This is how my voice sounds.')
+    if (voiceProfile === 'robot') {
+      utterance.pitch = 0.2
+      utterance.rate = 0.9
+    } else {
+      const voices = window.speechSynthesis.getVoices()
+      if (voiceProfile === 'female') {
+        utterance.pitch = 1.2
+        const match = voices.find(v => /female|samantha|victoria|zira|karen|moira|tessa/i.test(v.name))
+        if (match) utterance.voice = match
+      } else if (voiceProfile === 'male') {
+        utterance.pitch = 0.8
+        const match = voices.find(v => /male|david|daniel|alex|fred|jorge|rishi/i.test(v.name))
+        if (match) utterance.voice = match
+      }
+    }
+    window.speechSynthesis.speak(utterance)
+  }
+
   const handleTabClick = (tab) => {
     setActiveTab(tab)
     if (tab === '2d')   setAvatarMode('2d')
@@ -613,6 +634,13 @@ export default function AvatarStudio() {
                         Auto-Read Chat Responses
                       </label>
                     </div>
+
+                    <button
+                      onClick={handleTestVoice}
+                      className="mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-md hover:bg-primary/20 transition-colors"
+                    >
+                      ▶ Test Voice
+                    </button>
                   </div>
 
                   {avatar3DGallery.length === 0 ? (

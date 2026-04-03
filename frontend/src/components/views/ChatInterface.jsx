@@ -125,26 +125,31 @@ export default function ChatInterface() {
 
     window.speechSynthesis.cancel()
 
+    const detectedLang = /[äöüßÄÖÜ]/.test(text) ? 'de-DE' : 'en-US'
+    const langPrefix = detectedLang.split('-')[0]
+
     const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = detectedLang
 
     if (voiceProfile === 'robot') {
       utterance.pitch = 0.2
       utterance.rate = 0.9
     } else {
       const voices = window.speechSynthesis.getVoices()
+      const langVoices = voices.filter(v => v.lang.startsWith(langPrefix))
       if (voiceProfile === 'female') {
         utterance.pitch = 1.2
         utterance.rate = 1.0
-        const match = voices.find(v =>
+        const match = langVoices.find(v =>
           /female|samantha|victoria|zira|karen|moira|tessa/i.test(v.name)
-        )
+        ) || langVoices[0]
         if (match) utterance.voice = match
       } else if (voiceProfile === 'male') {
         utterance.pitch = 0.8
         utterance.rate = 1.0
-        const match = voices.find(v =>
+        const match = langVoices.find(v =>
           /male|david|daniel|alex|fred|jorge|rishi/i.test(v.name)
-        )
+        ) || langVoices[0]
         if (match) utterance.voice = match
       }
     }
@@ -182,7 +187,7 @@ export default function ChatInterface() {
             apiKey,
             baseUrl,
             modelName,
-            systemPrompt
+            systemPrompt: (systemPrompt || '') + '\n\nCRITICAL RULE: Automatically detect the language of the user\'s input and ALWAYS reply in that exact same language.'
           }
         })
       })
