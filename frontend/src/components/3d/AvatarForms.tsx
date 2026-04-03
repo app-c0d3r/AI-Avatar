@@ -388,19 +388,29 @@ interface GLTFAvatarProps {
   url: string
   scale: number
   yOffset?: number
+  onFitComputed?: (fit: { scale: number; yOffset: number }) => void
 }
 
-export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps) {
+export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed }: GLTFAvatarProps) {
   const [vrm, setVrm] = useState<any>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const targetMouse = useRef({ x: 0, y: 0 })
   const blinkState = useRef({ nextBlinkTime: 0 })
+  const speakingTime = useRef(0)
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      targetMouse.current.x = (event.clientX / window.innerWidth) * 2 - 1
-      targetMouse.current.y = -(event.clientY / window.innerHeight) * 2 + 1
+      const canvas = document.querySelector('canvas')
+      let centerX = window.innerWidth / 2
+      let centerY = window.innerHeight / 2
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect()
+        centerX = rect.left + rect.width / 2
+        centerY = rect.top + rect.height / 2
+      }
+      targetMouse.current.x = -(event.clientX - centerX) / (window.innerWidth / 2)
+      targetMouse.current.y = (event.clientY - centerY) / (window.innerHeight / 2)
     }
     window.addEventListener('mousemove', handleMouseMove)
     return () => {
@@ -442,6 +452,20 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
           setLoadError(msg)
         } else {
           setVrm(loaded)
+          if (onFitComputed) {
+            const box = new THREE.Box3().setFromObject(loaded.scene)
+            const boxHeight = box.max.y - box.min.y
+            if (boxHeight > 0) {
+              loaded.scene.updateWorldMatrix(true, true)
+              const headBone = loaded.humanoid?.getNormalizedBoneNode?.('head')
+              const headLocalY = headBone
+                ? (() => { const v = new THREE.Vector3(); headBone.getWorldPosition(v); return v.y })()
+                : box.min.y + boxHeight * 0.88
+              const fitScale = Math.min(Math.max(3.5 / boxHeight, 1.0), 6.0)
+              const fitYOffset = Math.min(Math.max(-headLocalY * fitScale, -8), 2)
+              onFitComputed({ scale: fitScale, yOffset: fitYOffset })
+            }
+          }
         }
       })
       .catch((err: Error) => {
@@ -468,16 +492,23 @@ export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0 }: GLTFAvatarProps
         for (let i = 0; i < dataArray.length; i++) {
           if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
         }
-        const rawMouth = (maxVolume - 30) / 100
-        const targetMouthOpen = Math.max(0, Math.min(rawMouth, 1.0))
+        const isSpeaking = maxVolume > 30
+        if (isSpeaking) {
+          speakingTime.current += delta
+        } else {
+          speakingTime.current = 0
+        }
+        const amplitude = Math.max(0, Math.min((maxVolume - 30) / 100, 1.0))
+        const oscillation = isSpeaking ? (Math.sin(speakingTime.current * 12) * 0.5 + 0.5) : 0
+        const targetMouthOpen = amplitude * oscillation
         const currentAa = vrm.expressionManager.getValue('aa') || 0
-        vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.4))
+        vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.35))
       }
       if (vrm && vrm.humanoid) {
         const head = vrm.humanoid.getNormalizedBoneNode('head')
         const neck = vrm.humanoid.getNormalizedBoneNode('neck')
-        const targetX = targetMouse.current.y * 0.3
-        const targetY = -targetMouse.current.x * 0.5
+        const targetX = MathUtils.clamp(targetMouse.current.y * 0.3, -0.25, 0.25)
+        const targetY = MathUtils.clamp(-targetMouse.current.x * 0.5, -0.35, 0.35)
         if (head) {
           head.rotation.x = MathUtils.lerp(head.rotation.x, targetX, 0.05)
           head.rotation.y = MathUtils.lerp(head.rotation.y, targetY, 0.05)
