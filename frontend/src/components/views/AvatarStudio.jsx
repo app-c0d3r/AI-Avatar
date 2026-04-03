@@ -306,11 +306,39 @@ export default function AvatarStudio() {
   const [avatar3DGallery, setAvatar3DGallery] = useLocalStorage('avatar3DGallery', [])
   const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
   const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
+  const [avatar3DModelSettings, setAvatar3DModelSettings] = useLocalStorage('avatar3DModelSettings', {})
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
   const [isUploading3D, setIsUploading3D]     = useState(false)
   const [systemPrompt, setSystemPrompt]       = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
   const [voiceProfile, setVoiceProfile]       = useLocalStorage('mapa-voiceProfile', 'female')
   const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
+
+  useEffect(() => {
+    if (!avatar3DUrl) return
+    const saved = avatar3DModelSettings[avatar3DUrl]
+    if (saved) {
+      setAvatar3DScale(saved.scale)
+      setAvatar3DYOffset(saved.yOffset)
+    }
+  }, [avatar3DUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFitComputed = ({ scale, yOffset }) => {
+    if (!avatar3DUrl || avatar3DModelSettings[avatar3DUrl]) return
+    setAvatar3DScale(scale)
+    setAvatar3DYOffset(yOffset)
+    setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale, yOffset } }))
+  }
+
+  const handleResetFit = () => {
+    if (!avatar3DUrl) return
+    setAvatar3DModelSettings(prev => {
+      const next = { ...prev }
+      delete next[avatar3DUrl]
+      return next
+    })
+    setAvatar3DScale(2.5)
+    setAvatar3DYOffset(-3.5)
+  }
 
   const currentAudioRef = useRef(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -508,7 +536,7 @@ export default function AvatarStudio() {
                               <ambientLight intensity={1.5} />
                               <directionalLight position={[2, 2, 2]} intensity={2} />
                               <Suspense fallback={null}>
-                                <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
+                                <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} onFitComputed={handleFitComputed} />
                               </Suspense>
                             </Canvas>
                           )
@@ -572,7 +600,11 @@ export default function AvatarStudio() {
                       max="6"
                       step="0.1"
                       value={avatar3DScale}
-                      onChange={(e) => setAvatar3DScale(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setAvatar3DScale(val)
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: val, yOffset: avatar3DYOffset } }))
+                      }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
                   </div>
@@ -590,10 +622,26 @@ export default function AvatarStudio() {
                       max="2"
                       step="0.1"
                       value={avatar3DYOffset}
-                      onChange={(e) => setAvatar3DYOffset(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setAvatar3DYOffset(val)
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: avatar3DScale, yOffset: val } }))
+                      }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
                   </div>
+
+                  {avatar3DUrl && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleResetFit}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        title="Re-compute auto-fit for this model"
+                      >
+                        ↺ Reset fit
+                      </button>
+                    </div>
+                  )}
 
                   <div className="space-y-2 pb-1">
                     <div className="flex items-center justify-between">
