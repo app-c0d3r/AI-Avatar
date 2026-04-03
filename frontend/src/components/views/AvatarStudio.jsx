@@ -553,8 +553,8 @@ export default function AvatarStudio() {
                     <input
                       type="range"
                       min="40"
-                      max="150"
-                      step="2"
+                      max="400"
+                      step="5"
                       value={chatAvatarSize}
                       onChange={(e) => setChatAvatarSize(Number(e.target.value))}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"

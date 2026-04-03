@@ -127,8 +127,7 @@ const MiniAvatar = () => {
   const avatar3DScale  = Number(avatar3DScaleRaw)
   const avatar3DYOffset = Number(avatar3DYOffsetRaw)
   const chatAvatarSize = Number(chatAvatarSizeRaw)
-  const clampedSize = `clamp(60px, 10vw, ${chatAvatarSize}px)`
-  const sizeStyle = { width: clampedSize, height: clampedSize }
+  const sizeStyle = { width: `${chatAvatarSize}px`, height: `${chatAvatarSize}px` }
 
   const currentSize = getActiveSize(config)
   const calculatedZPosition = Math.max(1.5, 3.5 - (currentSize * 1.5))

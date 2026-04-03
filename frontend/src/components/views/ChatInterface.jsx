@@ -219,79 +219,84 @@ export default function ChatInterface() {
       <ChatHistorySidebar />
 
       {/* Right Column - Chat Area */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-row h-full relative">
 
-        {/* Avatar Header Area */}
-        <div className="shrink-0 p-6 flex justify-start">
+        {/* Left Column - Avatar */}
+        <div className="shrink-0 p-6 flex flex-col items-center justify-start border-r border-border/20 bg-muted/5">
           <div className="rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
             <MiniAvatar />
           </div>
         </div>
 
-        {/* Message History - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <p className="text-lg mb-2">Welcome to AI Avatar!</p>
-                <p className="text-sm">Start a conversation by typing a message below.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, idx) =>
-                msg.role === 'user' ? (
-                  <div key={idx} className="flex justify-end mb-4">
-                    <Card className="max-w-[80%] bg-primary text-primary-foreground">
-                      <CardContent className="p-3">
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div key={idx} className="flex items-start mb-6">
-                    <Card className="max-w-[80%]">
-                      <CardContent className="p-3">
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )
-              )}
-              {isLoading && messages[messages.length - 1]?.content === '' && (
-                <div className="flex justify-start mb-4">
-                  <Card>
-                    <CardContent className="p-3">
-                      <p className="text-sm text-muted-foreground">Avatar is typing...</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Right Column - Messages + Input */}
+        <div className="flex-1 flex flex-col h-full relative min-w-0">
 
-        {/* Input Area - Fixed Bottom */}
-        <div className="p-4 border-t shrink-0">
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={textareaRef}
-              placeholder="Type your message..."
-              rows={1}
-              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-h-[40px] max-h-[150px]"
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value)
-                e.target.style.height = 'auto'
-                e.target.style.height = `${e.target.scrollHeight}px`
-              }}
-              onKeyDown={handleKeyDown}
-            />
-            <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
-              Send
-            </Button>
+          {/* Message History - Scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
+            {messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <p className="text-lg mb-2">Welcome to AI Avatar!</p>
+                  <p className="text-sm">Start a conversation by typing a message below.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {messages.map((msg, idx) =>
+                  msg.role === 'user' ? (
+                    <div key={idx} className="flex justify-end mb-4">
+                      <Card className="max-w-[80%] bg-primary text-primary-foreground">
+                        <CardContent className="p-3">
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div key={idx} className="flex items-start mb-6">
+                      <Card className="max-w-[80%]">
+                        <CardContent className="p-3">
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                )}
+                {isLoading && messages[messages.length - 1]?.content === '' && (
+                  <div className="flex justify-start mb-4">
+                    <Card>
+                      <CardContent className="p-3">
+                        <p className="text-sm text-muted-foreground">Avatar is typing...</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
           </div>
+
+          {/* Input Area - Fixed Bottom */}
+          <div className="p-4 border-t shrink-0">
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
+                placeholder="Type your message..."
+                rows={1}
+                className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-h-[40px] max-h-[150px]"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = `${e.target.scrollHeight}px`
+                }}
+                onKeyDown={handleKeyDown}
+              />
+              <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
+                Send
+              </Button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
