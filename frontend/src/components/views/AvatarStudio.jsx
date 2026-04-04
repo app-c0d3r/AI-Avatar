@@ -304,10 +304,14 @@ export default function AvatarStudio() {
   const [, setAvatar3DFileName] = useLocalStorage('avatar3DFileName', '')
   const [gallery, setGallery] = useLocalStorage('avatarGallery', [])
   const [avatar3DGallery, setAvatar3DGallery] = useLocalStorage('avatar3DGallery', [])
-  const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
-  const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
+  const [cameraSettings, setCameraSettings] = useLocalStorage('avatar3DCameraSettings', {
+    portrait: { scale: 1.8, yOffset: -5.0 },
+    fullbody:  { scale: 1.0, yOffset: -1.0 },
+  })
   const [avatar3DModelSettings, setAvatar3DModelSettings] = useLocalStorage('avatar3DModelSettings', {})
   const [previewResetKey, setPreviewResetKey] = useState(0)
+  const [viewMode, setViewMode] = useState('portrait')
+  const [pose, setPose] = useState('neutral')
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
   const [isUploading3D, setIsUploading3D]     = useState(false)
   const [systemPrompt, setSystemPrompt]       = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
@@ -317,28 +321,35 @@ export default function AvatarStudio() {
   useEffect(() => {
     if (!avatar3DUrl) return
     const saved = avatar3DModelSettings[avatar3DUrl]
-    if (saved) {
-      setAvatar3DScale(saved.scale)
-      setAvatar3DYOffset(saved.yOffset)
-    }
+    if (!saved) return
+    // Support legacy flat { scale, yOffset } alongside new per-viewMode format
+    const portrait = saved.portrait ?? (saved.scale != null ? { scale: saved.scale, yOffset: saved.yOffset } : { scale: 1.8, yOffset: -5.0 })
+    const fullbody  = saved.fullbody  ?? { scale: 1.0, yOffset: -1.0 }
+    setCameraSettings({ portrait, fullbody })
   }, [avatar3DUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFitComputed = ({ scale, yOffset }) => {
-    if (!avatar3DUrl || avatar3DModelSettings[avatar3DUrl]) return
-    setAvatar3DScale(scale)
-    setAvatar3DYOffset(yOffset)
-    setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale, yOffset } }))
+    if (!avatar3DUrl || avatar3DModelSettings[avatar3DUrl]?.[viewMode]) return
+    setCameraSettings(prev => ({ ...prev, [viewMode]: { scale, yOffset } }))
+    setAvatar3DModelSettings(prev => ({
+      ...prev,
+      [avatar3DUrl]: { ...(prev[avatar3DUrl] ?? {}), [viewMode]: { scale, yOffset } },
+    }))
   }
 
   const handleResetFit = () => {
     if (!avatar3DUrl) return
+    const modeDefault = viewMode === 'portrait' ? { scale: 1.8, yOffset: -5.0 } : { scale: 1.0, yOffset: -1.0 }
     setAvatar3DModelSettings(prev => {
       const next = { ...prev }
-      delete next[avatar3DUrl]
+      if (next[avatar3DUrl]) {
+        const updated = { ...next[avatar3DUrl] }
+        delete updated[viewMode]
+        Object.keys(updated).length > 0 ? (next[avatar3DUrl] = updated) : delete next[avatar3DUrl]
+      }
       return next
     })
-    setAvatar3DScale(2.5)
-    setAvatar3DYOffset(-3.5)
+    setCameraSettings(prev => ({ ...prev, [viewMode]: modeDefault }))
     setPreviewResetKey(k => k + 1)
   }
 
@@ -520,7 +531,7 @@ export default function AvatarStudio() {
 
                 {/* Active preview */}
                 <div className="flex flex-col items-center gap-3 shrink-0">
-                  <div className="rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black" style={{ width: `${chatAvatarSize}px`, height: `${chatAvatarSize}px` }}>
+                  <div className={`overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black transition-all duration-300 ${viewMode === 'portrait' ? 'rounded-full aspect-square w-full max-w-[300px]' : 'rounded-xl aspect-[3/4] w-full max-w-[350px]'}`}>
                     {avatar3DUrl ? (
                       <PreviewErrorBoundary fallback={
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
@@ -528,17 +539,18 @@ export default function AvatarStudio() {
                         </div>
                       }>
                         {(() => {
-                          const faceY = avatar3DYOffset + 1.5 * avatar3DScale
-                          const camZ  = Math.max(1.2, 0.8 * avatar3DScale)
+                          const active = cameraSettings[viewMode] ?? (viewMode === 'portrait' ? { scale: 1.8, yOffset: -5.0 } : { scale: 1.0, yOffset: -1.0 })
+                          const faceY = active.yOffset + 1.5 * active.scale
+                          const camZ  = Math.max(1.2, 0.8 * active.scale)
                           return (
                             <Canvas
-                              key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}-${previewResetKey}`}
+                              key={`${viewMode}-${faceY.toFixed(1)}-${camZ.toFixed(1)}-${previewResetKey}`}
                               camera={{ position: [0, faceY, camZ], fov: 45 }}
                             >
                               <ambientLight intensity={1.5} />
                               <directionalLight position={[2, 2, 2]} intensity={2} />
                               <Suspense fallback={null}>
-                                <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} onFitComputed={handleFitComputed} />
+                                <GLTFAvatar url={avatar3DUrl} scale={active.scale} yOffset={active.yOffset} onFitComputed={handleFitComputed} pose={pose} />
                               </Suspense>
                             </Canvas>
                           )
@@ -589,23 +601,61 @@ export default function AvatarStudio() {
                     Models {avatar3DGallery.length > 0 && <span className="normal-case font-normal">({avatar3DGallery.length})</span>}
                   </p>
 
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">View Mode</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setViewMode('portrait')}
+                          className={`flex-1 px-3 py-1.5 text-xs rounded-md border transition-colors ${viewMode === 'portrait' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 border-border hover:bg-muted/60'}`}
+                        >
+                          Portrait
+                        </button>
+                        <button
+                          onClick={() => setViewMode('fullbody')}
+                          className={`flex-1 px-3 py-1.5 text-xs rounded-md border transition-colors ${viewMode === 'fullbody' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 border-border hover:bg-muted/60'}`}
+                        >
+                          Full Body
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pose</label>
+                      <select
+                        value={pose}
+                        onChange={(e) => setPose(e.target.value)}
+                        className="w-full bg-muted/50 border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="neutral">Neutral Stand</option>
+                        <option value="wave">Friendly Wave</option>
+                        <option value="thinking">Thinking</option>
+                        <option value="happy">Happy</option>
+                        <option value="sad">Sad</option>
+                        <option value="surprised">Surprised</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2 pb-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                         Zoom / Scale
                       </label>
-                      <span className="text-xs text-muted-foreground font-mono">{Number(avatar3DScale).toFixed(1)}×</span>
+                      <span className="text-xs text-muted-foreground font-mono">{Number(cameraSettings[viewMode]?.scale ?? 1.8).toFixed(1)}×</span>
                     </div>
                     <input
                       type="range"
                       min="1"
                       max="6"
                       step="0.1"
-                      value={avatar3DScale}
+                      value={cameraSettings[viewMode]?.scale ?? 1.8}
                       onChange={(e) => {
                         const val = Number(e.target.value)
-                        setAvatar3DScale(val)
-                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: val, yOffset: (prev[avatar3DUrl]?.yOffset ?? avatar3DYOffset) } }))
+                        setCameraSettings(prev => ({ ...prev, [viewMode]: { ...prev[viewMode], scale: val } }))
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({
+                          ...prev,
+                          [avatar3DUrl]: { ...(prev[avatar3DUrl] ?? {}), [viewMode]: { ...(prev[avatar3DUrl]?.[viewMode] ?? {}), scale: val } },
+                        }))
                       }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
@@ -616,18 +666,21 @@ export default function AvatarStudio() {
                       <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                         Vertical Position
                       </label>
-                      <span className="text-xs text-muted-foreground font-mono">{Number(avatar3DYOffset).toFixed(1)}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{Number(cameraSettings[viewMode]?.yOffset ?? -5.0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="-8"
                       max="2"
                       step="0.1"
-                      value={avatar3DYOffset}
+                      value={cameraSettings[viewMode]?.yOffset ?? -5.0}
                       onChange={(e) => {
                         const val = Number(e.target.value)
-                        setAvatar3DYOffset(val)
-                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: (prev[avatar3DUrl]?.scale ?? avatar3DScale), yOffset: val } }))
+                        setCameraSettings(prev => ({ ...prev, [viewMode]: { ...prev[viewMode], yOffset: val } }))
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({
+                          ...prev,
+                          [avatar3DUrl]: { ...(prev[avatar3DUrl] ?? {}), [viewMode]: { ...(prev[avatar3DUrl]?.[viewMode] ?? {}), yOffset: val } },
+                        }))
                       }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />

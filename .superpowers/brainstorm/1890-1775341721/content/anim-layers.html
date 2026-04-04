@@ -1,0 +1,74 @@
+<h2>Which animation layers do you want?</h2>
+<p class="subtitle">Select all that apply — these stack on top of each other. The avatar always has mouse-tracking (head follows cursor) and blinking already.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="idle" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Idle breathing &amp; body sway</h3>
+      <p>Continuous subtle animation when the avatar is "waiting" — gentle torso rise/fall (breathing), slow side-to-side hip sway. Makes the avatar feel alive even when nothing is happening. Very anime-typical.</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">spine.z oscillate ±0.03</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">hips.z oscillate ±0.015</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="head_tilt" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Emotion head tilt</h3>
+      <p>Head tilts sideways (Z-axis) depending on emotion — curious tilt when thinking, slight sad tilt when apologizing. Layered on top of the existing mouse-tracking. Very characteristic in anime.</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">head.z ±0.2 per emotion</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="torso_lean" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Torso / spine reactions</h3>
+      <p>Torso leans forward slightly on a bow (happy/grateful), slumps on sad, snaps upright on surprised. Adds full body expressiveness — not just arms.</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">spine.x ±0.15 on emotion</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">upperChest.x for bow</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="emotion_intensity" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Emotion intensity levels</h3>
+      <p>Instead of binary on/off, the LLM returns an intensity (low / medium / high). A "slightly happy" response plays a small arm lift; "very excited" plays arms fully raised with a bounce. Same poses but scaled.</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">emotion: "happy", intensity: "high"</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="talking_anim" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Talking gesture animations</h3>
+      <p>While TTS audio plays, the avatar does subtle "talking" arm/hand gestures — slight wrist movement, occasional small hand raise. Separate from the pose system, purely procedural during speech.</p>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace">triggers on vrm-audio-play</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px;padding:16px;background:#0f172a;border:1px solid #1e293b;border-radius:8px">
+  <p class="label">Current state (already implemented)</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <span style="background:#14532d;border:1px solid #166534;border-radius:4px;padding:2px 8px;font-size:11px">✓ Arm poses (6 emotions)</span>
+    <span style="background:#14532d;border:1px solid #166534;border-radius:4px;padding:2px 8px;font-size:11px">✓ Mouse head tracking</span>
+    <span style="background:#14532d;border:1px solid #166534;border-radius:4px;padding:2px 8px;font-size:11px">✓ Blinking</span>
+    <span style="background:#14532d;border:1px solid #166534;border-radius:4px;padding:2px 8px;font-size:11px">✓ Mouth sync (audio)</span>
+    <span style="background:#14532d;border:1px solid #166534;border-radius:4px;padding:2px 8px;font-size:11px">✓ Keyword → pose detection</span>
+  </div>
+</div>

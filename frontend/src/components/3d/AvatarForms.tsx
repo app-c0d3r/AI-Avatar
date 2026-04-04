@@ -1,9 +1,6 @@
-import { useRef, useMemo, useEffect, useState } from 'react'
+import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { MathUtils } from 'three'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
 const WAVE_COUNT = 800
 
@@ -384,183 +381,6 @@ export function DNAAvatar({ size = 1, speed = 1, color }: DNAAvatarProps) {
   )
 }
 
-interface GLTFAvatarProps {
-  url: string
-  scale: number
-  yOffset?: number
-  onFitComputed?: (fit: { scale: number; yOffset: number }) => void
-}
-
-export function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed }: GLTFAvatarProps) {
-  const [vrm, setVrm] = useState<any>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const targetMouse = useRef({ x: 0, y: 0 })
-  const blinkState = useRef({ nextBlinkTime: 0 })
-  const speakingTime = useRef(0)
-  const onFitComputedRef = useRef(onFitComputed)
-  useEffect(() => { onFitComputedRef.current = onFitComputed })
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const canvas = document.querySelector('canvas')
-      let centerX = window.innerWidth / 2
-      let centerY = window.innerHeight / 2
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect()
-        centerX = rect.left + rect.width / 2
-        centerY = rect.top + rect.height / 2
-      }
-      targetMouse.current.x = -(event.clientX - centerX) / (window.innerWidth / 2)
-      targetMouse.current.y = (event.clientY - centerY) / (window.innerHeight / 2)
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-    }
-  }, [])
-
-  useEffect(() => {
-    const handleAudioPlay = (e: Event) => {
-      const audio = (e as CustomEvent).detail as HTMLAudioElement
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const analyser = audioCtx.createAnalyser()
-      analyser.fftSize = 256
-      const source = audioCtx.createMediaElementSource(audio)
-      source.connect(analyser)
-      analyser.connect(audioCtx.destination)
-      analyserRef.current = analyser
-    }
-    window.addEventListener('vrm-audio-play', handleAudioPlay)
-    return () => {
-      window.removeEventListener('vrm-audio-play', handleAudioPlay)
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    setLoadError(null)
-
-    const loader = new GLTFLoader()
-    loader.register((parser: any) => new VRMLoaderPlugin(parser))
-
-    loader.loadAsync(url)
-      .then((gltf) => {
-        if (cancelled) return
-        const loaded = gltf.userData.vrm
-        if (!loaded) {
-          const msg = 'VRM data missing in GLTF userData — file may not be a valid VRM'
-          console.error('[GLTFAvatar]', msg, gltf.userData)
-          setLoadError(msg)
-        } else {
-          setVrm(loaded)
-          if (onFitComputedRef.current) {
-            const box = new THREE.Box3().setFromObject(loaded.scene)
-            const boxHeight = box.max.y - box.min.y
-            if (boxHeight > 0) {
-              loaded.scene.updateWorldMatrix(true, true)
-              const headBone = loaded.humanoid?.getNormalizedBoneNode?.('head')
-              let headWorldY: number
-              if (headBone) {
-                const headPosVec = new THREE.Vector3()
-                headBone.getWorldPosition(headPosVec)
-                headWorldY = headPosVec.y
-              } else {
-                headWorldY = box.min.y + boxHeight * 0.88
-              }
-              const fitScale = Math.min(Math.max(3.5 / boxHeight, 1.0), 6.0)
-              const fitYOffset = Math.min(Math.max(-headWorldY * fitScale, -8), 2)
-              onFitComputedRef.current({ scale: fitScale, yOffset: fitYOffset })
-            }
-          }
-        }
-      })
-      .catch((err: Error) => {
-        if (cancelled) return
-        console.error('[GLTFAvatar] load failed:', err)
-        setLoadError(err.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [url])
-
-  useFrame((state, delta) => {
-    try {
-      if (vrm) {
-        const dt = Math.min(delta, 0.033)
-        vrm.update(dt)
-      }
-      if (vrm && vrm.expressionManager && analyserRef.current) {
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-        analyserRef.current.getByteFrequencyData(dataArray)
-        let maxVolume = 0
-        for (let i = 0; i < dataArray.length; i++) {
-          if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
-        }
-        const isSpeaking = maxVolume > 30
-        if (isSpeaking) {
-          speakingTime.current += delta
-        } else {
-          speakingTime.current = 0
-        }
-        const amplitude = Math.max(0, Math.min((maxVolume - 30) / 100, 1.0))
-        const oscillation = isSpeaking ? (Math.sin(speakingTime.current * 12) * 0.5 + 0.5) : 0
-        const targetMouthOpen = amplitude * oscillation
-        const currentAa = vrm.expressionManager.getValue('aa') || 0
-        vrm.expressionManager.setValue('aa', MathUtils.lerp(currentAa, targetMouthOpen, 0.35))
-      }
-      if (vrm && vrm.humanoid) {
-        const head = vrm.humanoid.getNormalizedBoneNode('head')
-        const neck = vrm.humanoid.getNormalizedBoneNode('neck')
-        const targetX = MathUtils.clamp(targetMouse.current.y * 0.3, -0.25, 0.25)
-        const targetY = MathUtils.clamp(-targetMouse.current.x * 0.5, -0.35, 0.35)
-        if (head) {
-          head.rotation.x = MathUtils.lerp(head.rotation.x, targetX, 0.05)
-          head.rotation.y = MathUtils.lerp(head.rotation.y, targetY, 0.05)
-        }
-        if (neck) {
-          neck.rotation.x = MathUtils.lerp(neck.rotation.x, targetX, 0.05)
-          neck.rotation.y = MathUtils.lerp(neck.rotation.y, targetY, 0.05)
-        }
-      }
-      if (vrm && vrm.expressionManager) {
-        const time = state.clock.elapsedTime
-        if (time >= blinkState.current.nextBlinkTime) {
-          vrm.expressionManager.setValue('blink', 1.0)
-          setTimeout(() => { if (vrm.expressionManager) vrm.expressionManager.setValue('blink', 0.0) }, 150)
-          blinkState.current.nextBlinkTime = time + Math.random() * 4 + 2
-        }
-      }
-      if (vrm && vrm.humanoid) {
-        const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
-        const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
-        if (leftArm) leftArm.rotation.z = -1.2
-        if (rightArm) rightArm.rotation.z = 1.2
-      }
-    } catch (e) {
-      console.error('VRM Frame Error:', e)
-    }
-  })
-
-  if (loadError) {
-    return (
-      <mesh>
-        <sphereGeometry args={[0.4, 16, 16]} />
-        <meshStandardMaterial color="red" />
-      </mesh>
-    )
-  }
-  if (!vrm) return null
-
-  return (
-    <group position={[0, yOffset, 0]}>
-      <primitive object={vrm.scene} scale={scale} />
-    </group>
-  )
-}
-
 interface GhostAvatarProps {
   distort: number
   speed: number
@@ -618,3 +438,6 @@ export function GhostAvatar({ distort, speed, size, color }: GhostAvatarProps) {
     </group>
   )
 }
+
+export { GLTFAvatar } from './GLTFAvatar'
+export type { GLTFAvatarProps } from './GLTFAvatar'

@@ -1,0 +1,71 @@
+<h2>3 ways to build this</h2>
+<p class="subtitle">Pick the architecture that feels right. All deliver the same features.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="flat" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Extend the flat system <span style="font-size:11px;color:#64748b;font-weight:400;margin-left:6px">minimal change</span></h3>
+      <p>Keep one <code>getPoseTargets()</code> function, just add torso/head fields and multiply everything by intensity. Fastest to ship.</p>
+      <div style="margin:10px 0;padding:10px;background:#0f172a;border-radius:6px;font-size:12px;font-family:monospace;color:#94a3b8;line-height:1.6">
+        getPoseTargets(pose, intensity, t)<br>
+        → { lUAz, rUAz, lLAz, rLAz,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f59e0b">spineX, headZ</span> } × intensity<br><br>
+        <span style="color:#ef4444">✗ all bones in one function — grows unwieldy</span><br>
+        <span style="color:#ef4444">✗ talking gestures would need ugly if-else</span><br>
+        <span style="color:#22c55e">✓ no structural change to GLTFAvatar</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option selected" data-choice="layered" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Layered animation system <span style="font-size:11px;color:#22c55e;font-weight:400;margin-left:6px">★ recommended</span></h3>
+      <p>Three independent layers run in <code>useFrame</code> and write to a shared bone-state object. Layers can run simultaneously without interfering.</p>
+      <div style="margin:10px 0;padding:10px;background:#0f172a;border-radius:6px;font-size:12px;font-family:monospace;line-height:1.8">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="background:#1e3a5f;border:1px solid #2563eb;border-radius:4px;padding:6px;text-align:center;color:#93c5fd">
+            <div style="font-size:10px;color:#60a5fa;margin-bottom:2px">LAYER 1</div>
+            Pose Layer<br>
+            <span style="font-size:10px;color:#64748b">arms + torso<br>+ head tilt<br>× intensity</span>
+          </div>
+          <div style="background:#1a3a2a;border:1px solid #16a34a;border-radius:4px;padding:6px;text-align:center;color:#86efac">
+            <div style="font-size:10px;color:#4ade80;margin-bottom:2px">LAYER 2</div>
+            Talk Layer<br>
+            <span style="font-size:10px;color:#64748b">procedural<br>gestures<br>during TTS</span>
+          </div>
+          <div style="background:#2d1a3a;border:1px solid #9333ea;border-radius:4px;padding:6px;text-align:center;color:#d8b4fe">
+            <div style="font-size:10px;color:#c084fc;margin-bottom:2px">LAYER 3</div>
+            Existing<br>
+            <span style="font-size:10px;color:#64748b">blink<br>mouth sync<br>mouse look</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;color:#22c55e">✓ layers compose cleanly, easy to add more later</div>
+        <div style="color:#22c55e">✓ talking gestures never fight emotion poses</div>
+        <div style="color:#22c55e">✓ GLTFAvatar stays under ~300 lines</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="statemachine" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>State machine + keyframes <span style="font-size:11px;color:#64748b;font-weight:400;margin-left:6px">full rewrite</span></h3>
+      <p>Avatar has explicit states (idle → reacting → talking). Pose data lives in keyframe objects. Transitions are driven by the state machine.</p>
+      <div style="margin:10px 0;padding:10px;background:#0f172a;border-radius:6px;font-size:12px;font-family:monospace;color:#94a3b8;line-height:1.6">
+        idle ──► reacting ──► returning<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└──► talking ──► idle<br><br>
+        <span style="color:#22c55e">✓ most correct architecture long-term</span><br>
+        <span style="color:#ef4444">✗ large rewrite of AvatarForms.tsx</span><br>
+        <span style="color:#ef4444">✗ overkill for current pose count</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px;padding:12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px">
+  <p class="subtitle" style="font-size:12px"><strong style="color:#f8fafc">Backend change (same for all):</strong> Chat API returns <code style="background:#1e293b;padding:1px 5px;border-radius:3px">{ content: "...", emotion: "happy", intensity: "medium" }</code> as the first SSE chunk before content starts streaming.</p>
+</div>

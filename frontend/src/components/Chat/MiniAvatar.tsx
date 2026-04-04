@@ -120,12 +120,17 @@ const MiniAvatar = () => {
   const [avatarMode]       = useLocalStorage('avatarMode', 'form')
   const [avatar2DUrl]      = useLocalStorage('avatar2DUrl', '')
   const [avatar3DUrl]      = useLocalStorage('avatar3DUrl', '')
-  const [avatar3DFileName] = useLocalStorage('avatar3DFileName', '')
-  const [avatar3DScaleRaw]   = useLocalStorage('avatar3DScale', 2.5)
-  const [avatar3DYOffsetRaw] = useLocalStorage('avatar3DYOffset', -3.5)
+  const [cameraSettingsRaw] = useLocalStorage(
+    'avatar3DCameraSettings',
+    { portrait: { scale: 1.8, yOffset: -5.0 }, fullbody: { scale: 1.0, yOffset: -1.0 } }
+  )
+  const [modelSettingsRaw] = useLocalStorage('avatar3DModelSettings', {})
   const [chatAvatarSizeRaw]  = useLocalStorage('chatAvatarSize', 80)
-  const avatar3DScale  = Number(avatar3DScaleRaw)
-  const avatar3DYOffset = Number(avatar3DYOffsetRaw)
+  const cameraSettings = cameraSettingsRaw as { portrait?: { scale: number; yOffset: number } }
+  const modelSettings  = modelSettingsRaw  as Record<string, { portrait?: { scale: number; yOffset: number } } | undefined>
+  const portraitOverride = avatar3DUrl ? modelSettings[avatar3DUrl]?.portrait : undefined
+  const avatar3DScale   = Number(portraitOverride?.scale   ?? cameraSettings?.portrait?.scale   ?? 1.8)
+  const avatar3DYOffset = Number(portraitOverride?.yOffset ?? cameraSettings?.portrait?.yOffset ?? -5.0)
   const chatAvatarSize = Number(chatAvatarSizeRaw)
   const sizeStyle = { width: `${chatAvatarSize}px`, height: `${chatAvatarSize}px` }
 

@@ -1,0 +1,79 @@
+<h2>Which new emotions/poses to add?</h2>
+<p class="subtitle">The current 6 poses (wave, happy, thinking, sad, surprised, neutral) stay. Select additional ones to add. These will also be LLM-detected with intensity.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="excited" onclick="toggleSelect(this)">
+    <div class="letter">+</div>
+    <div class="content">
+      <h3>Excited / Celebrating</h3>
+      <p>Both arms raised high (fists or open), slight torso lean back. For "Yes!", "That's correct!", celebrations, big announcements.</p>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">lUA.z=-0.2, rUA.z=0.2</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">spine.x=-0.1 lean back</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="bow" onclick="toggleSelect(this)">
+    <div class="letter">+</div>
+    <div class="content">
+      <h3>Bow / Grateful</h3>
+      <p>Torso bends forward, arms relaxed at sides. Classic anime bow — for "thank you", "I'm sorry", formal greetings. Holds for ~2s then returns.</p>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">spine.x=0.35 forward</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">upperChest.x=0.2</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="explaining" onclick="toggleSelect(this)">
+    <div class="letter">+</div>
+    <div class="content">
+      <h3>Explaining / Presenting</h3>
+      <p>One arm extended forward/outward, palm open. Used when the AI is teaching or explaining something. Common "professor" or "guide" gesture in anime.</p>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">rUA.z=0.5, rLA.x=-0.4</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">slight forward lean</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="embarrassed" onclick="toggleSelect(this)">
+    <div class="letter">+</div>
+    <div class="content">
+      <h3>Embarrassed / Shy</h3>
+      <p>Arms slightly crossed at chest, head tilt down. For "oops", "I don't know", "my mistake". Very recognizable anime expression.</p>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">both arms pulled in</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">head.z tilt + head.x down</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="confident" onclick="toggleSelect(this)">
+    <div class="letter">+</div>
+    <div class="content">
+      <h3>Confident / Assertive</h3>
+      <p>Arms crossed at chest, upright posture, slight chin up. For definitive answers, "I'm certain", strong recommendations. Power pose.</p>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">arms crossed geometry</span>
+        <span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:2px 7px;font-size:11px;font-family:monospace">spine.x=-0.05 upright</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:20px;padding:14px;background:#0f172a;border:1px solid #1e293b;border-radius:8px">
+  <p class="label" style="margin-bottom:8px">Existing poses that will be enhanced with intensity + head tilt + torso</p>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">wave</span>
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">happy</span>
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">thinking</span>
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">sad</span>
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">surprised</span>
+    <span style="background:#1e293b;border:1px solid #475569;border-radius:4px;padding:2px 8px;font-size:11px">neutral</span>
+  </div>
+  <p class="subtitle" style="margin-top:8px;font-size:11px">All existing poses will get: torso lean + head tilt + intensity scaling</p>
+</div>
