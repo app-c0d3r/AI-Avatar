@@ -80,6 +80,7 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
       isTalkingRef.current = true
       audio.onended = () => {
         isTalkingRef.current = false
+        analyserRef.current = null
       }
     }
     window.addEventListener('vrm-audio-play', handleAudioPlay)
