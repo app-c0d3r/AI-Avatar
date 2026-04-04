@@ -1,0 +1,111 @@
+<h2>Design — Section 1: Data Flow</h2>
+<p class="subtitle">How emotion travels from LLM response to avatar bones</p>
+
+<div style="padding:20px;background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;font-family:monospace;font-size:12px">
+
+  <!-- Row 1: User sends -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9;min-width:140px;text-align:center">User sends message</div>
+    <div style="color:#475569">──►</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9;min-width:160px;text-align:center">POST /api/chat</div>
+  </div>
+
+  <!-- Row 2: Backend -->
+  <div style="margin:10px 0 6px 80px;display:flex;align-items:flex-start;gap:8px">
+    <div style="color:#475569;margin-top:12px">│<br>▼</div>
+    <div style="background:#172030;border:1px solid #2563eb;border-radius:6px;padding:10px 14px;color:#93c5fd;flex:1">
+      <div style="color:#60a5fa;font-weight:bold;margin-bottom:6px">Backend (Python / FastAPI)</div>
+      <div style="color:#94a3b8;line-height:1.8">
+        1. Appends to system prompt:<br>
+        <span style="color:#fbbf24">&nbsp;&nbsp;"Start your reply with [EMO:emotion:intensity]<br>
+        &nbsp;&nbsp; then your actual response."</span><br>
+        2. Streams LLM response<br>
+        3. Detects <span style="color:#fbbf24">[EMO:happy:medium]</span> in first chunk<br>
+        4. Emits <span style="color:#22c55e">data: {"emotion":"happy","intensity":"medium"}</span><br>
+        5. Strips tag, streams remaining content normally
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Frontend SSE -->
+  <div style="margin:6px 0 6px 80px;display:flex;align-items:flex-start;gap:8px">
+    <div style="color:#475569;margin-top:12px">│<br>▼</div>
+    <div style="background:#1a2a1a;border:1px solid #16a34a;border-radius:6px;padding:10px 14px;color:#86efac;flex:1">
+      <div style="color:#4ade80;font-weight:bold;margin-bottom:6px">ChatInterface.jsx — SSE parser</div>
+      <div style="color:#94a3b8;line-height:1.8">
+        • If <span style="color:#4ade80">parsed.emotion</span> → store <span style="color:#fbbf24">pendingEmotion + pendingIntensity</span><br>
+        • Content chunks → accumulate + display as before<br>
+        • On stream end → <span style="color:#4ade80">dispatchEvent('vrm-pose-change', {pose, intensity})</span><br>
+        • Then calls <span style="color:#4ade80">speakText()</span> → triggers talk layer
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4: GLTFAvatar Layers -->
+  <div style="margin:6px 0 0 80px;display:flex;align-items:flex-start;gap:8px">
+    <div style="color:#475569;margin-top:12px">│<br>▼</div>
+    <div style="flex:1">
+      <div style="background:#1e1a2e;border:1px solid #9333ea;border-radius:6px;padding:10px 14px;color:#d8b4fe;margin-bottom:8px">
+        <div style="color:#c084fc;font-weight:bold;margin-bottom:8px">GLTFAvatar.tsx — useFrame (runs at 60fps)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="background:#2d1b3d;border:1px solid #7c3aed;border-radius:4px;padding:8px">
+            <div style="color:#a78bfa;font-size:11px;font-weight:bold;margin-bottom:4px">LAYER 1 · Pose</div>
+            <div style="color:#94a3b8;font-size:11px;line-height:1.6">
+              getPoseTargets(pose, intensity, t)<br>
+              → lUAz, rUAz, lLAz, rLAz<br>
+              → <span style="color:#fbbf24">spineX</span> (new)<br>
+              → <span style="color:#fbbf24">headZ tilt</span> (new)<br>
+              lerp all at 0.08
+            </div>
+          </div>
+          <div style="background:#1a2d1a;border:1px solid #15803d;border-radius:4px;padding:8px">
+            <div style="color:#4ade80;font-size:11px;font-weight:bold;margin-bottom:4px">LAYER 2 · Talk</div>
+            <div style="color:#94a3b8;font-size:11px;line-height:1.6">
+              Active during TTS audio<br>
+              sin-wave wrist motion<br>
+              rLA.x oscillates ±0.1<br>
+              lUA.z breathes ±0.05<br>
+              fades out on audio end
+            </div>
+          </div>
+          <div style="background:#1e1a1a;border:1px solid #92400e;border-radius:4px;padding:8px">
+            <div style="color:#fbbf24;font-size:11px;font-weight:bold;margin-bottom:4px">LAYER 3 · Existing</div>
+            <div style="color:#94a3b8;font-size:11px;line-height:1.6">
+              Mouse → head/neck<br>
+              Blink timer<br>
+              Mouth via analyser<br>
+              (unchanged)
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#0f1a0f;border:1px solid #166534;border-radius:6px;padding:8px 14px;display:flex;gap:20px">
+        <div style="color:#4ade80;font-size:11px">▼ Apply to VRM bones</div>
+        <div style="color:#94a3b8;font-size:11px">spine · upperChest · leftUpperArm · rightUpperArm · leftLowerArm · rightLowerArm · head (tilt only)</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px;padding:12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px">
+  <p class="label" style="margin-bottom:6px">Files that change</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+    <div style="background:#1e293b;padding:8px;border-radius:4px">
+      <span style="color:#f59e0b">backend/routers/chat.py</span><br>
+      <span style="color:#64748b">Add EMO tag to system prompt · strip tag from stream</span>
+    </div>
+    <div style="background:#1e293b;padding:8px;border-radius:4px">
+      <span style="color:#f59e0b">frontend/src/components/views/ChatInterface.jsx</span><br>
+      <span style="color:#64748b">Parse emotion SSE event · dispatch with intensity</span>
+    </div>
+    <div style="background:#1e293b;padding:8px;border-radius:4px">
+      <span style="color:#f59e0b">frontend/src/components/3d/avatarPoses.ts</span> <span style="color:#22c55e">(new)</span><br>
+      <span style="color:#64748b">getPoseTargets() — all 11 emotions, all bones</span>
+    </div>
+    <div style="background:#1e293b;padding:8px;border-radius:4px">
+      <span style="color:#f59e0b">frontend/src/components/3d/AvatarForms.tsx</span><br>
+      <span style="color:#64748b">Add talk layer · spine/headZ lerp · import avatarPoses</span>
+    </div>
+  </div>
+</div>

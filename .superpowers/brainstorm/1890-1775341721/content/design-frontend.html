@@ -1,0 +1,128 @@
+<h2>Design — Section 4: Frontend File Split &amp; Layer Wiring</h2>
+<p class="subtitle"><code>AvatarForms.tsx</code> is 695 lines (limit: 300). This feature is the right moment to clean it up.</p>
+
+<!-- File split diagram -->
+<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;padding:16px;margin-bottom:16px;font-family:monospace;font-size:12px">
+  <p class="label" style="margin-bottom:12px">File extraction plan</p>
+  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start">
+
+    <!-- Before -->
+    <div>
+      <div style="color:#64748b;font-size:10px;margin-bottom:6px">BEFORE</div>
+      <div style="background:#1c0a0a;border:1px solid #7f1d1d;border-radius:6px;padding:10px">
+        <div style="color:#f87171;font-weight:bold">AvatarForms.tsx</div>
+        <div style="color:#ef4444;font-size:10px">695 lines ❌</div>
+        <div style="margin-top:8px;color:#94a3b8;font-size:11px;line-height:2">
+          CubeAvatar<br>SwarmAvatar<br>Swarm2Avatar<br>WaveAvatar<br>CoreAvatar<br>DNAAvatar<br>GhostAvatar<br>
+          <span style="color:#fbbf24">getPoseTargets()</span><br>
+          <span style="color:#fbbf24">PoseTargets interface</span><br>
+          <span style="color:#fbbf24">GLTFAvatar (283 lines)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div style="color:#475569;font-size:20px;margin-top:30px">⟹</div>
+
+    <!-- After -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:2px">AFTER</div>
+
+      <div style="background:#0a1a0f;border:1px solid #166534;border-radius:6px;padding:10px">
+        <div style="color:#4ade80;font-weight:bold">avatarPoses.ts <span style="color:#166534;font-size:10px">new</span></div>
+        <div style="color:#22c55e;font-size:10px">~80 lines ✓</div>
+        <div style="margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.8">
+          PoseTargets interface (expanded)<br>
+          NEUTRAL constants<br>
+          getPoseTargets(pose, intensity, t)<br>
+          intensity scale helper
+        </div>
+      </div>
+
+      <div style="background:#0a1220;border:1px solid #1d4ed8;border-radius:6px;padding:10px">
+        <div style="color:#60a5fa;font-weight:bold">GLTFAvatar.tsx <span style="color:#1d4ed8;font-size:10px">extracted + new layers</span></div>
+        <div style="color:#3b82f6;font-size:10px">~330 lines (slightly over — justified by complexity)</div>
+        <div style="margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.8">
+          GLTFAvatar component<br>
+          Layer 1: pose + spine + headZ<br>
+          <span style="color:#fbbf24">Layer 2: talk gestures (new)</span><br>
+          Layer 3: blink + mouth + mouse (unchanged)
+        </div>
+      </div>
+
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px">
+        <div style="color:#94a3b8;font-weight:bold">AvatarForms.tsx <span style="color:#334155;font-size:10px">reduced</span></div>
+        <div style="color:#64748b;font-size:10px">~410 lines (existing debt, no worse)</div>
+        <div style="margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.8">
+          Cube/Swarm/Wave/Core/DNA/Ghost<br>
+          Re-exports GLTFAvatar for consumers
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New refs in GLTFAvatar -->
+<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:14px;margin-bottom:16px">
+  <p class="label" style="margin-bottom:10px">New refs added to GLTFAvatar</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-family:monospace;font-size:11px;color:#94a3b8">
+    <div>
+      <div style="color:#64748b;margin-bottom:6px">State refs (expanded)</div>
+      <div style="line-height:1.9">
+        intensityRef = useRef(<span style="color:#86efac">'medium'</span>)<br>
+        <span style="color:#64748b">// from vrm-pose-change event</span><br><br>
+        boneState = useRef(&#123;<br>
+        &nbsp;&nbsp;lUAz: -1.2, rUAz: 1.2,<br>
+        &nbsp;&nbsp;lLAz: 0, rLAz: 0,<br>
+        &nbsp;&nbsp;<span style="color:#fbbf24">spineX: 0,</span> <span style="color:#64748b">// new</span><br>
+        &nbsp;&nbsp;<span style="color:#fbbf24">headZ: 0,</span> &nbsp;<span style="color:#64748b">// new</span><br>
+        &#125;)<br><br>
+        isTalkingRef = useRef(<span style="color:#f59e0b">false</span>)<br>
+        talkPhaseRef = useRef(<span style="color:#f59e0b">0</span>)
+      </div>
+    </div>
+    <div>
+      <div style="color:#64748b;margin-bottom:6px">Event handler update (backward compat)</div>
+      <div style="line-height:1.9">
+        <span style="color:#64748b">// handles both string (Studio test)</span><br>
+        <span style="color:#64748b">// and object (chat dispatch)</span><br>
+        const detail = e.detail<br>
+        <span style="color:#c084fc">if</span> (typeof detail === <span style="color:#86efac">'string'</span>) &#123;<br>
+        &nbsp;&nbsp;poseRef.current = detail<br>
+        &nbsp;&nbsp;intensityRef.current = <span style="color:#86efac">'medium'</span><br>
+        &#125; <span style="color:#c084fc">else</span> &#123;<br>
+        &nbsp;&nbsp;poseRef.current = detail.pose<br>
+        &nbsp;&nbsp;intensityRef.current = detail.intensity<br>
+        &#125;
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- useFrame layer wiring -->
+<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:14px">
+  <p class="label" style="margin-bottom:10px">useFrame — three-layer execution order</p>
+  <div style="font-family:monospace;font-size:11px;line-height:2;color:#94a3b8">
+    <div style="color:#64748b">// ── LAYER 1: Pose (arms + spine + head tilt) ─────────────────</div>
+    <div>const targets = <span style="color:#60a5fa">getPoseTargets</span>(poseRef, intensityRef, t)</div>
+    <div>b.lUAz = lerp(b.lUAz, targets.lUAz, <span style="color:#f59e0b">0.08</span>)</div>
+    <div><span style="color:#64748b">// ... lLAz, rUAz, rLAz same as before ...</span></div>
+    <div><span style="color:#fbbf24">b.spineX = lerp(b.spineX, targets.spineX, 0.06)</span> <span style="color:#64748b">// slightly slower for organic feel</span></div>
+    <div><span style="color:#fbbf24">b.headZ  = lerp(b.headZ,  targets.headZ,  0.05)</span></div>
+    <br>
+    <div style="color:#64748b">// ── LAYER 2: Talk gestures (additive during TTS) ─────────────</div>
+    <div><span style="color:#c084fc">if</span> (isTalkingRef.current &amp;&amp; volume > <span style="color:#f59e0b">10</span>) &#123;</div>
+    <div>&nbsp;&nbsp;const v = Math.min(volume / <span style="color:#f59e0b">128</span>, <span style="color:#f59e0b">1</span>)</div>
+    <div>&nbsp;&nbsp;b.rLAz += Math.sin(t * <span style="color:#f59e0b">4</span>) * <span style="color:#f59e0b">0.08</span> * v  <span style="color:#64748b">// wrist flick</span></div>
+    <div>&nbsp;&nbsp;b.lUAz += Math.sin(t * <span style="color:#f59e0b">2.5</span> + <span style="color:#f59e0b">1</span>) * <span style="color:#f59e0b">0.04</span> * v <span style="color:#64748b">// left arm breathes</span></div>
+    <div>&#125;</div>
+    <br>
+    <div style="color:#64748b">// ── LAYER 3: Existing (mouse, blink, mouth) ── unchanged ─────</div>
+    <br>
+    <div style="color:#64748b">// ── Apply all bones ──────────────────────────────────────────</div>
+    <div>leftArm.rotation.z = b.lUAz; rightArm.rotation.z = b.rUAz</div>
+    <div>leftLower.rotation.z = b.lLAz; rightLower.rotation.z = b.rLAz</div>
+    <div><span style="color:#fbbf24">spine?.rotation.x = b.spineX</span></div>
+    <div><span style="color:#fbbf24">head.rotation.z  = b.headZ  <span style="color:#64748b">// additive on top of mouse Y/X</span></span></div>
+  </div>
+</div>

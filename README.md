@@ -35,7 +35,7 @@ cd AI-Avatar
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env and add your API keys (e.g., OPENROUTER_API_KEY)
+Edit .env and add your API keys (e.g., OPENROUTER_API_KEY)
 
 2. Start Services (Docker-First)
 
@@ -83,15 +83,15 @@ Audio / TTS	edge-tts (Microsoft Neural voices - Male/Female/Robot profiles)
 Infrastructure	Docker, Docker Compose (Fully containerized architecture)
 LLM Engine	OpenRouter API, Ollama (Local LLMs), OpenAI, Anthropic, Gemini
 🚀 Quick Start
+
 1. Clone and Configure
-Bash
 
 git clone <your-repo-url>
 cd AI-Avatar
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env and add your API keys (e.g., OPENROUTER_API_KEY)
+Edit .env and add your API keys (e.g., OPENROUTER_API_KEY)
 
 2. Start Services (Docker-First)
 
