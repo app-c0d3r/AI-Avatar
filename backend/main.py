@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 import edge_tts
@@ -12,6 +13,24 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import AsyncOpenAI
+
+VALID_EMOTIONS = {
+    'neutral', 'wave', 'happy', 'excited', 'thinking',
+    'sad', 'surprised', 'bow', 'explaining', 'embarrassed', 'confident'
+}
+VALID_INTENSITIES = {'low', 'medium', 'high'}
+
+
+def parse_emo_tag(raw: str) -> tuple[str, str]:
+    """Parse [EMO:emotion:intensity] tag. Aggressively forgiving — strips whitespace, lowercases."""
+    cleaned = re.sub(r'\s', '', raw).lower()
+    match = re.search(r'\[emo:([^:]+):([^\]]+)\]', cleaned)
+    if not match:
+        return 'neutral', 'medium'
+    emotion = match.group(1) if match.group(1) in VALID_EMOTIONS else 'neutral'
+    intensity = match.group(2) if match.group(2) in VALID_INTENSITIES else 'medium'
+    return emotion, intensity
+
 
 # Load environment variables from .env file
 load_dotenv()
