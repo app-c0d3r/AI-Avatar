@@ -205,7 +205,7 @@ async def chat(request: ChatRequest):
         model = DEFAULT_MODELS.get(provider, DEFAULT_MODELS["openrouter"])
 
     # Prepare messages with context
-    messages = request.messages
+    messages = inject_emo_instruction(request.messages)
     if request.context:
         context_parts = []
         if request.context.get("userName"):
@@ -227,7 +227,7 @@ async def chat(request: ChatRequest):
 
     # Return streaming response with automatic fallback
     return StreamingResponse(
-        stream_with_fallback(primary_client, model, messages, provider),
+        emo_buffered_stream(stream_with_fallback(primary_client, model, messages, provider)),
         media_type="text/event-stream"
     )
 
