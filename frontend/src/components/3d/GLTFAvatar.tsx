@@ -30,6 +30,7 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
   const poseRef  = useRef(pose ?? 'neutral')
   const boneState = useRef({ lUAz: -1.2, rUAz: 1.2, lLAz: 0, rLAz: 0, spineX: 0, headZ: 0 })
   const intensityRef = useRef<string>('medium')
+  const isTalkingRef = useRef<boolean>(false)
   useEffect(() => { poseRef.current = pose ?? 'neutral' }, [pose])
   useEffect(() => {
     const handlePoseChange = (e: Event) => {
@@ -76,6 +77,10 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
       source.connect(analyser)
       analyser.connect(audioCtx.destination)
       analyserRef.current = analyser
+      isTalkingRef.current = true
+      audio.onended = () => {
+        isTalkingRef.current = false
+      }
     }
     window.addEventListener('vrm-audio-play', handleAudioPlay)
     return () => {
@@ -159,24 +164,27 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
 
   useFrame((state, delta) => {
     try {
+      // ── Pre-calc: volume (shared by Layer 2 talk gestures + Layer 3 mouth sync) ──
+      let volume = 0
+      if (analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+        analyserRef.current.getByteFrequencyData(dataArray)
+        for (let i = 0; i < dataArray.length; i++) {
+          if (dataArray[i] > volume) volume = dataArray[i]
+        }
+      }
       if (vrm) {
         const dt = Math.min(delta, 0.033)
         vrm.update(dt)
       }
-      if (vrm && vrm.expressionManager && analyserRef.current) {
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-        analyserRef.current.getByteFrequencyData(dataArray)
-        let maxVolume = 0
-        for (let i = 0; i < dataArray.length; i++) {
-          if (dataArray[i] > maxVolume) maxVolume = dataArray[i]
-        }
-        const isSpeaking = maxVolume > 30
+      if (vrm && vrm.expressionManager) {
+        const isSpeaking = volume > 30
         if (isSpeaking) {
           speakingTime.current += delta
         } else {
           speakingTime.current = 0
         }
-        const amplitude = Math.max(0, Math.min((maxVolume - 30) / 100, 1.0))
+        const amplitude = Math.max(0, Math.min((volume - 30) / 100, 1.0))
         const oscillation = isSpeaking ? (Math.sin(speakingTime.current * 12) * 0.5 + 0.5) : 0
         const targetMouthOpen = amplitude * oscillation
         const currentAa = vrm.expressionManager.getValue('aa') || 0
@@ -214,6 +222,12 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
         b.rLAz  = MathUtils.lerp(b.rLAz,  targets.rLAz,  0.08)
         b.spineX = MathUtils.lerp(b.spineX, targets.spineX, 0.06)
         b.headZ  = MathUtils.lerp(b.headZ,  targets.headZ,  0.05)
+        // ── LAYER 2: Talk gestures (additive, volume-driven) ──────────────────
+        if (isTalkingRef.current && volume > 10) {
+          const v = Math.min(volume / 128, 1)
+          b.rLAz += Math.sin(state.clock.elapsedTime * 4) * 0.08 * v
+          b.lUAz += Math.sin(state.clock.elapsedTime * 2.5 + 1) * 0.04 * v
+        }
         const leftArm    = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
         const rightArm   = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
         const leftLower  = vrm.humanoid.getNormalizedBoneNode('leftLowerArm')
