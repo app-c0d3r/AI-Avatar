@@ -75,6 +75,7 @@ function ChatHistorySidebar() {
   )
 }
 
+
 export default function ChatInterface() {
   const { avatarDisplayMode } = useAvatar()
   const {
@@ -160,6 +161,9 @@ export default function ChatInterface() {
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text) }
 
   const handleSubmit = async () => {
+    let pendingEmotion = 'neutral'
+    let pendingIntensity = 'medium'
+    let currentEventType = 'message'
     if (!input.trim() || isLoading || !activeSessionId) return
 
     const userMessage = createMessage('user', input.trim())
@@ -207,7 +211,9 @@ export default function ChatInterface() {
         const lines = chunk.split('\n')
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
             const data = line.slice(6)
 
             if (data === '[DONE]') continue
@@ -215,27 +221,34 @@ export default function ChatInterface() {
             try {
               const parsed = JSON.parse(data)
 
-              if (parsed.error) {
-                updateSessionMessages(activeSessionId, [
-                  ...newMessages,
-                  createMessage('assistant', `Error: ${parsed.error}`)
-                ])
-                break
+              if (currentEventType === 'emotion') {
+                pendingEmotion = parsed.emotion ?? 'neutral'
+                pendingIntensity = parsed.intensity ?? 'medium'
+              } else {
+                if (parsed.error) {
+                  updateSessionMessages(activeSessionId, [
+                    ...newMessages,
+                    createMessage('assistant', `Error: ${parsed.error}`)
+                  ])
+                  break
+                }
+
+                if (parsed.content) {
+                  // Smart append: detect full-text vs delta mode per chunk
+                  if (accumulatedContent.length > 0 && parsed.content.startsWith(accumulatedContent)) {
+                    accumulatedContent = parsed.content
+                  } else {
+                    accumulatedContent += parsed.content
+                  }
+                  updateSessionMessages(activeSessionId, [
+                    ...newMessages,
+                    createMessage('assistant', accumulatedContent)
+                  ])
+                }
               }
 
-              if (parsed.content) {
-                // Smart append: detect full-text vs delta mode per chunk
-                if (accumulatedContent.length > 0 && parsed.content.startsWith(accumulatedContent)) {
-                  accumulatedContent = parsed.content
-                } else {
-                  accumulatedContent += parsed.content
-                }
-                updateSessionMessages(activeSessionId, [
-                  ...newMessages,
-                  createMessage('assistant', accumulatedContent)
-                ])
-              }
-            } catch (e) {
+              currentEventType = 'message' // reset after every data line
+            } catch {
               // Ignore parse errors for incomplete chunks
             }
           }
@@ -244,6 +257,18 @@ export default function ChatInterface() {
 
       // Speak the full response exactly once after streaming finishes
       speakText(accumulatedContent)
+
+      // Dispatch LLM-tagged emotion to avatar
+      window.dispatchEvent(new CustomEvent('vrm-pose-change', {
+        detail: { pose: pendingEmotion, intensity: pendingIntensity }
+      }))
+
+      // Return to neutral after 8s
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('vrm-pose-change', {
+          detail: { pose: 'neutral', intensity: 'medium' }
+        }))
+      }, 8000)
     } catch (error) {
       updateSessionMessages(activeSessionId, [
         ...newMessages,
