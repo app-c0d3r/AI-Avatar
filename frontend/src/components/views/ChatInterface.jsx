@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Copy, Play, Volume2, VolumeX } from 'lucide-react'
 
 import { useAvatar } from '@/context/AvatarContext'
 import { useChat, createMessage } from '@/context/ChatContext'
@@ -83,7 +84,10 @@ export default function ChatInterface() {
     updateSessionMessages
   } = useChat()
 
+  const [autoRead, setAutoRead] = useLocalStorage('mapa-autoRead', true)
+  const [voiceProfile] = useLocalStorage('mapa-voiceProfile', 'female')
   const [userName] = useLocalStorage('mapa-userName', '')
+  const [systemPrompt] = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
   const [llmProvider] = useLocalStorage('mapa-llmProvider', 'openrouter')
   const [apiKey] = useLocalStorage('mapa-apiKey', '')
   const [baseUrl] = useLocalStorage('mapa-baseUrl', '')
@@ -91,8 +95,10 @@ export default function ChatInterface() {
 
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const currentAudioRef = useRef(null)
 
   // Auto-create session if none exists
   useEffect(() => {
@@ -108,6 +114,50 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom()
   }, [activeSession?.messages])
+
+  const toggleMute = () => {
+    const newState = !autoRead
+    setAutoRead(newState)
+    if (!newState && currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+      setIsSpeaking(false)
+    }
+  }
+
+  const speakText = async (text, force = false) => {
+    if (!force && !autoRead) return
+    if (!text) return
+
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+
+    const detectedLang = /[äöüßÄÖÜ]/.test(text) ? 'de-DE' : 'en-US'
+
+    setIsSpeaking(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: voiceProfile, language: detectedLang })
+      })
+      if (!response.ok) { setIsSpeaking(false); return }
+      const blob = await response.blob()
+      const audioUrl = URL.createObjectURL(blob)
+      const audio = new Audio(audioUrl)
+      currentAudioRef.current = audio
+      audio.onended = () => setIsSpeaking(false)
+      audio.play()
+      window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
+    } catch {
+      setIsSpeaking(false)
+      // TTS backend unavailable — fail silently
+    }
+  }
+
+  const copyToClipboard = (text) => { navigator.clipboard.writeText(text) }
 
   const handleSubmit = async () => {
     if (!input.trim() || isLoading || !activeSessionId) return
@@ -136,7 +186,8 @@ export default function ChatInterface() {
             llmProvider,
             apiKey,
             baseUrl,
-            modelName
+            modelName,
+            systemPrompt: (systemPrompt || '') + '\n\nCRITICAL RULE: Automatically detect the language of the user\'s input and ALWAYS reply in that exact same language.'
           }
         })
       })
@@ -145,7 +196,7 @@ export default function ChatInterface() {
 
       // Stream the response
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
+      const decoder = new TextDecoder(undefined, { stream: true })
       let accumulatedContent = ''
 
       while (true) {
@@ -173,7 +224,12 @@ export default function ChatInterface() {
               }
 
               if (parsed.content) {
-                accumulatedContent += parsed.content
+                // Smart append: detect full-text vs delta mode per chunk
+                if (accumulatedContent.length > 0 && parsed.content.startsWith(accumulatedContent)) {
+                  accumulatedContent = parsed.content
+                } else {
+                  accumulatedContent += parsed.content
+                }
                 updateSessionMessages(activeSessionId, [
                   ...newMessages,
                   createMessage('assistant', accumulatedContent)
@@ -185,6 +241,9 @@ export default function ChatInterface() {
           }
         }
       }
+
+      // Speak the full response exactly once after streaming finishes
+      speakText(accumulatedContent)
     } catch (error) {
       updateSessionMessages(activeSessionId, [
         ...newMessages,
@@ -219,79 +278,121 @@ export default function ChatInterface() {
       <ChatHistorySidebar />
 
       {/* Right Column - Chat Area */}
-      <div className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-row h-full relative">
 
-        {/* Avatar Header Area */}
-        <div className="shrink-0 p-6 flex justify-start">
+        {/* Left Column - Avatar */}
+        <div className="shrink-0 p-6 flex flex-col items-center justify-start border-r border-border/20 bg-muted/5">
           <div className="rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)]">
             <MiniAvatar />
           </div>
         </div>
 
-        {/* Message History - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <p className="text-lg mb-2">Welcome to AI Avatar!</p>
-                <p className="text-sm">Start a conversation by typing a message below.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, idx) =>
-                msg.role === 'user' ? (
-                  <div key={idx} className="flex justify-end mb-4">
-                    <Card className="max-w-[80%] bg-primary text-primary-foreground">
-                      <CardContent className="p-3">
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div key={idx} className="flex items-start mb-6">
-                    <Card className="max-w-[80%]">
-                      <CardContent className="p-3">
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )
-              )}
-              {isLoading && messages[messages.length - 1]?.content === '' && (
-                <div className="flex justify-start mb-4">
-                  <Card>
-                    <CardContent className="p-3">
-                      <p className="text-sm text-muted-foreground">Avatar is typing...</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Right Column - Messages + Input */}
+        <div className="flex-1 flex flex-col h-full relative min-w-0">
 
-        {/* Input Area - Fixed Bottom */}
-        <div className="p-4 border-t shrink-0">
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={textareaRef}
-              placeholder="Type your message..."
-              rows={1}
-              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-h-[40px] max-h-[150px]"
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value)
-                e.target.style.height = 'auto'
-                e.target.style.height = `${e.target.scrollHeight}px`
-              }}
-              onKeyDown={handleKeyDown}
-            />
-            <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
-              Send
-            </Button>
+          {/* Message History - Scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
+            {messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <p className="text-lg mb-2">Welcome to AI Avatar!</p>
+                  <p className="text-sm">Start a conversation by typing a message below.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {messages.map((msg, idx) =>
+                  msg.role === 'user' ? (
+                    <div key={idx} className="flex justify-end mb-4">
+                      <div className="flex flex-col items-end">
+                        <Card className="max-w-full bg-primary text-primary-foreground">
+                          <CardContent className="p-3">
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </CardContent>
+                        </Card>
+                        <div className="flex gap-3 mt-1 mr-1">
+                          <button
+                            onClick={() => copyToClipboard(msg.content)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copy"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={idx} className="flex items-start mb-6">
+                      <div className="flex flex-col items-start max-w-[80%]">
+                        <Card>
+                          <CardContent className="p-3">
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </CardContent>
+                        </Card>
+                        <div className="flex gap-3 mt-1 ml-1">
+                          <button
+                            onClick={() => copyToClipboard(msg.content)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copy"
+                          >
+                            <Copy size={14} />
+                          </button>
+                          <button
+                            onClick={() => speakText(msg.content, true)}
+                            disabled={isSpeaking || !autoRead}
+                            className={`transition-opacity ${isSpeaking || !autoRead ? 'opacity-30 cursor-not-allowed' : 'opacity-60 hover:opacity-100 cursor-pointer'} text-muted-foreground`}
+                            title="Play Audio"
+                          >
+                            <Play size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+                {isLoading && messages[messages.length - 1]?.content === '' && (
+                  <div className="flex justify-start mb-4">
+                    <Card>
+                      <CardContent className="p-3">
+                        <p className="text-sm text-muted-foreground">Avatar is typing...</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
           </div>
+
+          {/* Input Area - Fixed Bottom */}
+          <div className="p-4 border-t shrink-0">
+            <div className="flex gap-2 items-end">
+              <button
+                onClick={toggleMute}
+                className="shrink-0 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                title={autoRead ? 'Mute auto-read' : 'Unmute auto-read'}
+              >
+                {autoRead ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <textarea
+                ref={textareaRef}
+                placeholder="Type your message..."
+                rows={1}
+                className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-h-[40px] max-h-[150px]"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = `${e.target.scrollHeight}px`
+                }}
+                onKeyDown={handleKeyDown}
+              />
+              <Button onClick={handleSubmit} disabled={isLoading || !input.trim()}>
+                Send
+              </Button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

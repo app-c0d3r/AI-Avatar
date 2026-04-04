@@ -1,4 +1,4 @@
-import { Component, useState, useEffect, Suspense } from 'react'
+import { Component, useState, useEffect, useRef, Suspense } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Canvas } from '@react-three/fiber'
 
@@ -306,14 +306,75 @@ export default function AvatarStudio() {
   const [avatar3DGallery, setAvatar3DGallery] = useLocalStorage('avatar3DGallery', [])
   const [avatar3DScale, setAvatar3DScale]     = useLocalStorage('avatar3DScale', 2.5)
   const [avatar3DYOffset, setAvatar3DYOffset] = useLocalStorage('avatar3DYOffset', -3.5)
+  const [avatar3DModelSettings, setAvatar3DModelSettings] = useLocalStorage('avatar3DModelSettings', {})
+  const [previewResetKey, setPreviewResetKey] = useState(0)
   const [chatAvatarSize, setChatAvatarSize]   = useLocalStorage('chatAvatarSize', 80)
+  const [isUploading3D, setIsUploading3D]     = useState(false)
+  const [systemPrompt, setSystemPrompt]       = useLocalStorage('mapa-systemPrompt', 'You are a helpful, friendly AI assistant. Keep your answers concise.')
+  const [voiceProfile, setVoiceProfile]       = useLocalStorage('mapa-voiceProfile', 'female')
+  const [autoRead, setAutoRead]               = useLocalStorage('mapa-autoRead', true)
 
   useEffect(() => {
-    if (avatar3DUrl.startsWith('blob:') && !sessionStorage.getItem(avatar3DUrl)) {
-      setAvatar3DUrl('')
-      setAvatar3DGallery([])
+    if (!avatar3DUrl) return
+    const saved = avatar3DModelSettings[avatar3DUrl]
+    if (saved) {
+      setAvatar3DScale(saved.scale)
+      setAvatar3DYOffset(saved.yOffset)
     }
-  }, [])
+  }, [avatar3DUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFitComputed = ({ scale, yOffset }) => {
+    if (!avatar3DUrl || avatar3DModelSettings[avatar3DUrl]) return
+    setAvatar3DScale(scale)
+    setAvatar3DYOffset(yOffset)
+    setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale, yOffset } }))
+  }
+
+  const handleResetFit = () => {
+    if (!avatar3DUrl) return
+    setAvatar3DModelSettings(prev => {
+      const next = { ...prev }
+      delete next[avatar3DUrl]
+      return next
+    })
+    setAvatar3DScale(2.5)
+    setAvatar3DYOffset(-3.5)
+    setPreviewResetKey(k => k + 1)
+  }
+
+  const currentAudioRef = useRef(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  const handleTestVoice = async () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+
+    setIsSpeaking(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'Hello! I am your AI assistant. This is how my voice sounds.',
+          voice: voiceProfile,
+          language: 'en-US'
+        })
+      })
+      if (!response.ok) { setIsSpeaking(false); return }
+      const blob = await response.blob()
+      const audioUrl = URL.createObjectURL(blob)
+      const audio = new Audio(audioUrl)
+      currentAudioRef.current = audio
+      audio.onended = () => setIsSpeaking(false)
+      audio.play()
+      window.dispatchEvent(new CustomEvent('vrm-audio-play', { detail: audio }))
+    } catch {
+      setIsSpeaking(false)
+      // TTS backend unavailable — fail silently
+    }
+  }
 
   const handleTabClick = (tab) => {
     setActiveTab(tab)
@@ -459,20 +520,29 @@ export default function AvatarStudio() {
 
                 {/* Active preview */}
                 <div className="flex flex-col items-center gap-3 shrink-0">
-                  <div className="w-40 h-40 rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black">
+                  <div className="rounded-full overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_0_80px_rgba(0,255,255,0.08)] bg-black" style={{ width: `${chatAvatarSize}px`, height: `${chatAvatarSize}px` }}>
                     {avatar3DUrl ? (
                       <PreviewErrorBoundary fallback={
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
                           Failed to load
                         </div>
                       }>
-                        <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
-                          <ambientLight intensity={1.5} />
-                          <directionalLight position={[2, 2, 2]} intensity={2} />
-                          <Suspense fallback={null}>
-                            <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} />
-                          </Suspense>
-                        </Canvas>
+                        {(() => {
+                          const faceY = avatar3DYOffset + 1.5 * avatar3DScale
+                          const camZ  = Math.max(1.2, 0.8 * avatar3DScale)
+                          return (
+                            <Canvas
+                              key={`${faceY.toFixed(1)}-${camZ.toFixed(1)}-${previewResetKey}`}
+                              camera={{ position: [0, faceY, camZ], fov: 45 }}
+                            >
+                              <ambientLight intensity={1.5} />
+                              <directionalLight position={[2, 2, 2]} intensity={2} />
+                              <Suspense fallback={null}>
+                                <GLTFAvatar url={avatar3DUrl} scale={avatar3DScale} yOffset={avatar3DYOffset} onFitComputed={handleFitComputed} />
+                              </Suspense>
+                            </Canvas>
+                          )
+                        })()}
                       </PreviewErrorBoundary>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs text-center px-4">
@@ -480,22 +550,34 @@ export default function AvatarStudio() {
                       </div>
                     )}
                   </div>
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors">
-                    + Upload .glb / .gltf / .vrm
+                  <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-muted/30 text-sm hover:bg-muted/60 transition-colors ${isUploading3D ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {isUploading3D ? 'Uploading...' : '+ Upload .glb / .gltf / .vrm'}
                     <input
                       type="file"
                       accept=".glb,.gltf,.fbx,.vrm"
                       className="hidden"
-                      onChange={(e) => {
+                      disabled={isUploading3D}
+                      onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        const objectUrl = URL.createObjectURL(file)
-                        sessionStorage.setItem(objectUrl, '1')
-                        const newItem = { id: Date.now().toString(), name: file.name, url: objectUrl }
-                        setAvatar3DGallery(prev => [...prev, newItem])
-                        setAvatar3DUrl(objectUrl)
-                        setAvatar3DFileName(file.name)
                         e.target.value = ''
+                        setIsUploading3D(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          const res = await fetch('http://localhost:8000/api/upload/model', { method: 'POST', body: formData })
+                          if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`)
+                          const data = await res.json()
+                          const newItem = { id: Date.now().toString(), name: file.name, url: data.url }
+                          setAvatar3DGallery(prev => [...prev, newItem])
+                          setAvatar3DUrl(data.url)
+                          setAvatar3DFileName(file.name)
+                        } catch (err) {
+                          console.error('3D model upload error:', err)
+                          alert(`Upload failed: ${err.message}`)
+                        } finally {
+                          setIsUploading3D(false)
+                        }
                       }}
                     />
                   </label>
@@ -520,7 +602,11 @@ export default function AvatarStudio() {
                       max="6"
                       step="0.1"
                       value={avatar3DScale}
-                      onChange={(e) => setAvatar3DScale(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setAvatar3DScale(val)
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: val, yOffset: (prev[avatar3DUrl]?.yOffset ?? avatar3DYOffset) } }))
+                      }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
                   </div>
@@ -538,10 +624,26 @@ export default function AvatarStudio() {
                       max="2"
                       step="0.1"
                       value={avatar3DYOffset}
-                      onChange={(e) => setAvatar3DYOffset(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setAvatar3DYOffset(val)
+                        if (avatar3DUrl) setAvatar3DModelSettings(prev => ({ ...prev, [avatar3DUrl]: { scale: (prev[avatar3DUrl]?.scale ?? avatar3DScale), yOffset: val } }))
+                      }}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
                   </div>
+
+                  {avatar3DUrl && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleResetFit}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        title="Re-compute auto-fit for this model"
+                      >
+                        ↺ Reset fit
+                      </button>
+                    </div>
+                  )}
 
                   <div className="space-y-2 pb-1">
                     <div className="flex items-center justify-between">
@@ -553,12 +655,65 @@ export default function AvatarStudio() {
                     <input
                       type="range"
                       min="40"
-                      max="150"
-                      step="2"
+                      max="400"
+                      step="5"
                       value={chatAvatarSize}
                       onChange={(e) => setChatAvatarSize(Number(e.target.value))}
                       className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-primary bg-muted"
                     />
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      AI Behavior &amp; Voice
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        System Prompt
+                      </label>
+                      <textarea
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        className="w-full h-20 bg-muted/50 border border-border rounded-md p-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Voice Profile
+                      </label>
+                      <select
+                        value={voiceProfile}
+                        onChange={(e) => setVoiceProfile(e.target.value)}
+                        className="w-full bg-muted/50 border border-border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="female">Female Voice</option>
+                        <option value="male">Male Voice</option>
+                        <option value="robot">Robot Voice</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="autoRead"
+                        checked={autoRead}
+                        onChange={(e) => setAutoRead(e.target.checked)}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                      <label htmlFor="autoRead" className="text-sm cursor-pointer select-none">
+                        Auto-Read Chat Responses
+                      </label>
+                    </div>
+
+                    <button
+                      onClick={handleTestVoice}
+                      disabled={isSpeaking}
+                      className={`mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium border rounded-md transition-colors ${isSpeaking ? 'opacity-40 cursor-not-allowed bg-primary/5 text-primary/50 border-primary/10' : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'}`}
+                    >
+                      ▶ Test Voice
+                    </button>
                   </div>
 
                   {avatar3DGallery.length === 0 ? (

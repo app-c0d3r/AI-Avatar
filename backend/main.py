@@ -1,11 +1,15 @@
 import os
 import json
 import logging
+import edge_tts
 from typing import Optional, AsyncGenerator
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from pathlib import Path
+import httpx
+from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 
@@ -27,6 +31,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Persistent upload directories — map to ./backend/uploads on the host via Docker volume mount
+UPLOADS_BASE   = Path("/app/uploads")
+UPLOADS_MODELS = UPLOADS_BASE / "models"
+UPLOADS_MODELS.mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_BASE)), name="uploads")
+
 # Provider defaults
 PROVIDER_BASE_URLS = {
     "openrouter": "https://openrouter.ai/api/v1",
@@ -38,6 +49,12 @@ DEFAULT_MODELS = {
     "openrouter": os.getenv("DEFAULT_OPENROUTER_MODEL", "openrouter/free"),
     "ollama": os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.2:latest"),
 }
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "female"
+    language: str = "en-US"
 
 
 class Settings(BaseModel):
@@ -212,3 +229,53 @@ async def chat(request: ChatRequest):
         stream_with_fallback(primary_client, model, messages, provider),
         media_type="text/event-stream"
     )
+
+
+@app.post("/api/tts")
+async def text_to_speech(request: TTSRequest):
+    """Generate audio from text using edge-tts and return it as an MPEG stream."""
+    try:
+        is_german = request.language.startswith("de")
+        if request.voice == "male":
+            voice_name = "de-DE-ConradNeural" if is_german else "en-US-GuyNeural"
+        else:
+            voice_name = "de-DE-AmalaNeural" if is_german else "en-US-AriaNeural"
+
+        communicate = edge_tts.Communicate(request.text, voice_name)
+        audio_data = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_data += chunk["data"]
+
+        logger.info("TTS request: voice=%s lang=%s text_len=%d", voice_name, request.language, len(request.text))
+        return Response(content=audio_data, media_type="audio/mpeg")
+    except Exception as e:
+        logger.error("TTS error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ollama/models")
+async def ollama_models(base_url: str = Query(default=None)):
+    """Fetch installed Ollama models by proxying to /api/tags on the Ollama instance."""
+    url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")).rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{url}/api/tags")
+            response.raise_for_status()
+            data = response.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {"models": models}
+    except Exception as e:
+        logger.warning("Ollama model fetch failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"Cannot reach Ollama at {url}: {e}")
+
+
+@app.post("/api/upload/model")
+async def upload_model(file: UploadFile = File(...)):
+    """Receive a 3D model file and save it to the persistent uploads volume."""
+    dest = UPLOADS_MODELS / file.filename
+    content = await file.read()
+    dest.write_bytes(content)
+    url = f"http://localhost:8000/uploads/models/{file.filename}"
+    logger.info("3D model uploaded: %s (%d bytes)", file.filename, len(content))
+    return {"url": url}
