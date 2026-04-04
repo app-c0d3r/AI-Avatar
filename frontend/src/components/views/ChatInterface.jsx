@@ -246,11 +246,10 @@ export default function ChatInterface() {
                   ])
                 }
               }
-
-              currentEventType = 'message' // reset after every data line
             } catch {
               // Ignore parse errors for incomplete chunks
             }
+            currentEventType = 'message' // reset regardless of parse success
           }
         }
       }
