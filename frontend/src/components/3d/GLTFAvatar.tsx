@@ -5,32 +5,7 @@ import { MathUtils } from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
-// VRM coordinate convention (right-handed, Y-up, T-pose at rotation zero):
-//   leftUpperArm  → points +X  → z negative = arm DOWN, z positive = arm UP
-//   rightUpperArm → points -X  → z positive = arm DOWN, z negative = arm UP
-interface PoseTargets { lUAz: number; rUAz: number; lLAz: number; rLAz: number }
-
-function getPoseTargets(p: string, t: number): PoseTargets {
-  switch (p) {
-    case 'wave':
-      // left arm down, right arm raised and forearm oscillates for wave motion
-      return { lUAz: -1.2, rUAz: -0.9, lLAz: 0, rLAz: -0.35 + Math.sin(t * 3) * 0.35 }
-    case 'thinking':
-      // right arm partially up with forearm bent toward face
-      return { lUAz: -1.2, rUAz: 0.25, lLAz: 0, rLAz: -0.85 }
-    case 'happy':
-      // both arms slightly raised from natural hang
-      return { lUAz: -0.8, rUAz: 0.8, lLAz: 0, rLAz: 0 }
-    case 'sad':
-      // arms drooped below natural hang
-      return { lUAz: -1.5, rUAz: 1.5, lLAz: 0, rLAz: 0 }
-    case 'surprised':
-      // both arms raised up high (hands toward face)
-      return { lUAz: -0.15, rUAz: 0.15, lLAz: 0, rLAz: 0 }
-    default: // neutral
-      return { lUAz: -1.2, rUAz: 1.2, lLAz: 0, rLAz: 0 }
-  }
-}
+import { getPoseTargets, type PoseTargets } from './avatarPoses'
 
 interface GLTFAvatarProps {
   url: string
@@ -53,10 +28,21 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
 
   // Pose control: prop sets initial value; vrm-pose-change events can override at runtime
   const poseRef  = useRef(pose ?? 'neutral')
-  const armState = useRef({ lUAz: -1.2, rUAz: 1.2, lLAz: 0, rLAz: 0 })
+  const boneState = useRef({ lUAz: -1.2, rUAz: 1.2, lLAz: 0, rLAz: 0, spineX: 0, headZ: 0 })
+  const intensityRef = useRef<string>('medium')
   useEffect(() => { poseRef.current = pose ?? 'neutral' }, [pose])
   useEffect(() => {
-    const handlePoseChange = (e: Event) => { poseRef.current = (e as CustomEvent<string>).detail }
+    const handlePoseChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (typeof detail === 'string') {
+        // Legacy: Studio test dropdown dispatches plain strings
+        poseRef.current = detail
+        intensityRef.current = 'medium'
+      } else {
+        poseRef.current = (detail as { pose: string; intensity: string }).pose
+        intensityRef.current = (detail as { pose: string; intensity: string }).intensity
+      }
+    }
     window.addEventListener('vrm-pose-change', handlePoseChange)
     return () => window.removeEventListener('vrm-pose-change', handlePoseChange)
   }, [])
@@ -219,21 +205,27 @@ function GLTFAvatar({ url, scale = 2.5, yOffset = -2.0, onFitComputed, pose = 'n
         }
       }
       if (vrm && vrm.humanoid) {
-        const targets = getPoseTargets(poseRef.current, state.clock.elapsedTime)
-        const a = armState.current
-        const LERP = 0.08
-        a.lUAz = MathUtils.lerp(a.lUAz, targets.lUAz, LERP)
-        a.rUAz = MathUtils.lerp(a.rUAz, targets.rUAz, LERP)
-        a.lLAz = MathUtils.lerp(a.lLAz, targets.lLAz, LERP)
-        a.rLAz = MathUtils.lerp(a.rLAz, targets.rLAz, LERP)
+        // ── LAYER 1: Pose (arms + spine + head tilt) ─────────────────────────
+        const targets = getPoseTargets(poseRef.current, intensityRef.current, state.clock.elapsedTime)
+        const b = boneState.current
+        b.lUAz  = MathUtils.lerp(b.lUAz,  targets.lUAz,  0.08)
+        b.rUAz  = MathUtils.lerp(b.rUAz,  targets.rUAz,  0.08)
+        b.lLAz  = MathUtils.lerp(b.lLAz,  targets.lLAz,  0.08)
+        b.rLAz  = MathUtils.lerp(b.rLAz,  targets.rLAz,  0.08)
+        b.spineX = MathUtils.lerp(b.spineX, targets.spineX, 0.06)
+        b.headZ  = MathUtils.lerp(b.headZ,  targets.headZ,  0.05)
         const leftArm    = vrm.humanoid.getNormalizedBoneNode('leftUpperArm')
         const rightArm   = vrm.humanoid.getNormalizedBoneNode('rightUpperArm')
         const leftLower  = vrm.humanoid.getNormalizedBoneNode('leftLowerArm')
         const rightLower = vrm.humanoid.getNormalizedBoneNode('rightLowerArm')
-        if (leftArm)    leftArm.rotation.z    = a.lUAz
-        if (rightArm)   rightArm.rotation.z   = a.rUAz
-        if (leftLower)  leftLower.rotation.z   = a.lLAz
-        if (rightLower) rightLower.rotation.z  = a.rLAz
+        const spine      = vrm.humanoid.getNormalizedBoneNode('spine')
+        const headBone   = vrm.humanoid.getNormalizedBoneNode('head')
+        if (leftArm)    leftArm.rotation.z    = b.lUAz
+        if (rightArm)   rightArm.rotation.z   = b.rUAz
+        if (leftLower)  leftLower.rotation.z  = b.lLAz
+        if (rightLower) rightLower.rotation.z = b.rLAz
+        if (spine)      spine.rotation.x      = b.spineX
+        if (headBone)   headBone.rotation.z   = b.headZ  // additive roll — mouse owns X/Y
       }
     } catch {
       // Silent fail — a bad frame must not crash the WebGL canvas
