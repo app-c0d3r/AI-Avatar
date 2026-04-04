@@ -2,7 +2,7 @@
 
 ## Overview
 
-**MAPA** (Multimodal Autonomous Personal Agent) is a Docker-containerized AI avatar system that provides real-time, interactive 3D avatar communication with LLM-backed intelligence.
+**MAPA** (Multimodal Autonomous Personal Agent) is a Docker-containerized AI avatar system providing real-time 3D avatar interaction backed by LLM intelligence, text-to-speech, and multi-provider AI routing.
 
 ---
 
@@ -10,10 +10,14 @@
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **Frontend** | React 19 + Vite 6 | Component-based UI with fast HMR |
-| **UI Stack** | Tailwind CSS + Shadcn UI | Utility-first styling + accessible components |
-| **Backend** | Python 3.12 + FastAPI | Lightweight AI API routing |
-| **LLM Integration** | OpenRouter API / Ollama | Cloud-based and local LLM inference |
+| **Frontend** | React 19 + Vite 6 | Component-based UI with HMR |
+| **UI** | Tailwind CSS + Shadcn UI | Utility-first styling + accessible components |
+| **3D** | Three.js + @react-three/fiber | 3D rendering in React |
+| **Avatar** | @pixiv/three-vrm | VRM humanoid avatar format |
+| **Backend** | Python 3.12 + FastAPI + Uvicorn | AI API routing, TTS, file serving |
+| **TTS** | edge-tts | Microsoft Neural text-to-speech |
+| **HTTP Client** | httpx | Async HTTP for Ollama proxy |
+| **LLM** | OpenRouter / Ollama / OpenAI / Anthropic / Gemini | Cloud and local inference |
 | **Infrastructure** | Docker + Docker Compose | Containerized deployment |
 
 ---
@@ -21,38 +25,31 @@
 ## System Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Docker Network                         │
-│                    (mapa-network)                           │
-│                                                             │
-│  ┌─────────────────────┐         ┌─────────────────────┐   │
-│  │     Frontend        │         │      Backend        │   │
-│  │  React + Vite       │ ──────► │   FastAPI +         │   │
-│  │  Port: 5173         │  /api   │   Uvicorn           │   │
-│  │                     │  proxy  │   Port: 8000        │   │
-│  │  - UserProfile      │         │                     │   │
-│  │  - Chat             │         │  - /health          │   │
-│  │  - Settings         │         │  - /api/chat        │   │
-│  │                     │         │  - /api/profile     │   │
-│  └─────────┬───────────┘         │  - /api/settings    │   │
-│            │                     └──────────┬──────────┘   │
-│            │                                │              │
-│            └────────────────┬───────────────┘              │
-│                             │                              │
-│                             ▼                              │
-│                  ┌─────────────────────┐                   │
-│                  │   External APIs     │                   │
-│                  │   - OpenRouter      │                   │
-│                  │   - Ollama (later)  │                   │
-│                  └─────────────────────┘                   │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Host System   │
-│  - localhost:5173 (Frontend)  │
-│  - localhost:8000 (Backend)   │
-└─────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                       Docker Network (mapa-network)            │
+│                                                                │
+│  ┌──────────────────────┐          ┌──────────────────────┐   │
+│  │      Frontend        │          │       Backend        │   │
+│  │  React 19 + Vite     │ ───────► │   FastAPI + Uvicorn  │   │
+│  │  Port: 5173          │  /api    │   Port: 8000         │   │
+│  │                      │  proxy   │                      │   │
+│  │  - Chat              │          │  /api/chat           │   │
+│  │  - AvatarStudio      │          │  /api/tts            │   │
+│  │  - SettingsBoard     │          │  /api/upload/model   │   │
+│  │  - UserProfile       │          │  /api/ollama/models  │   │
+│  │  - MiniAvatar (3D)   │          │  /uploads/ (static)  │   │
+│  └──────────────────────┘          └──────────┬───────────┘   │
+│                                               │               │
+└───────────────────────────────────────────────┼───────────────┘
+                                                │
+                          ┌─────────────────────┼────────────────┐
+                          │                     │                │
+                          ▼                     ▼                ▼
+                   ┌─────────────┐    ┌──────────────┐  ┌──────────────┐
+                   │  OpenRouter │    │    Ollama     │  │  OpenAI /    │
+                   │  (cloud)    │    │  (local host) │  │  Anthropic / │
+                   └─────────────┘    └──────────────┘  │  Gemini      │
+                                                         └──────────────┘
 ```
 
 ---
@@ -62,179 +59,221 @@
 ```
 AI-Avatar/
 ├── frontend/
-│   ├── Dockerfile              # Node 20 Alpine, Vite dev server
-│   ├── package.json            # React + Vite dependencies
-│   ├── vite.config.js          # Server config + API proxy
-│   ├── index.html              # HTML entry point
+│   ├── Dockerfile                   # Node 20 Alpine, Vite dev server
+│   ├── package.json
+│   ├── vite.config.js               # API proxy → backend:8000
 │   └── src/
-│       ├── main.jsx            # React bootstrap
-│       ├── App.jsx             # Root component
-│       ├── index.css           # Base styles
-│       └── components/         # UI components (Phase 02+)
-│           ├── UserProfile/
+│       ├── App.jsx                  # Root + tab routing
+│       ├── main.jsx
+│       ├── context/
+│       │   └── AvatarContext.jsx    # avatarDisplayMode
+│       ├── hooks/
+│       │   └── useLocalStorage.js
+│       └── components/
+│           ├── 3d/
+│           │   └── AvatarForms.tsx  # All avatar components (GLTFAvatar + procedural)
 │           ├── Chat/
-│           └── Settings/
+│           │   └── MiniAvatar.tsx   # Chat bubble avatar (audio-reactive)
+│           ├── layout/
+│           │   └── MainLayout.jsx
+│           └── views/
+│               ├── AvatarStudio.jsx  # Form/2D/3D tabs + settings
+│               ├── ChatInterface.jsx
+│               ├── SettingsBoard.jsx
+│               └── UserProfile.jsx
 │
 ├── backend/
-│   ├── Dockerfile              # Python 3.12 slim, Uvicorn
-│   ├── requirements.txt        # FastAPI + Uvicorn
-│   ├── main.py                 # FastAPI application
-│   ├── app/
-│   │   ├── __init__.py
-│   │   └── main.py             # API routes
-│   └── docs/
-│       └── api-spec.md         # API documentation
-│
-├── infrastructure/
-│   ├── docker-compose.yml      # Service definitions (symlink)
-│   └── README.md               # Infrastructure docs
+│   ├── Dockerfile                   # Python 3.12 slim
+│   ├── requirements.txt
+│   ├── main.py                      # FastAPI application (all routes)
+│   └── uploads/
+│       └── models/                  # Uploaded VRM/GLB/GLTF files (Docker volume)
 │
 ├── docs/
-│   ├── system-architecture.md  # This file
-│   ├── Recherche.md            # Market research
+│   ├── system-architecture.md       # This file
 │   └── roadmap/
-│       └── phase01.md          # Phase 01 plan
+│       ├── index.md
+│       ├── phase01.md – phase05.md
+│       └── superpowers/
+│           ├── specs/               # Design specification documents
+│           └── plans/               # Implementation plans
 │
-├── docker-compose.yml          # Root compose file
-├── .env                        # Environment variables (secrets)
-├── .env.example                # Environment template
-└── QWEN.md                     # Project context
+├── docker-compose.yml
+├── .env                             # Secrets (gitignored)
+├── .env.example
+└── README.md
 ```
 
 ---
 
 ## Docker Services
 
-### Frontend Service
+### Frontend
 
 | Property | Value |
 |----------|-------|
-| **Build Context** | `./frontend` |
-| **Base Image** | `node:20-alpine` |
-| **Port** | 5173 |
-| **Volumes** | `./frontend:/app`, `/app/node_modules` |
-| **Command** | `npm run dev` |
-| **Features** | Hot-reload, Vite polling, API proxy |
+| Base image | `node:20-alpine` |
+| Port | 5173 |
+| Volumes | `./frontend:/app`, `/app/node_modules` |
+| Command | `npm run dev` |
 
-### Backend Service
+### Backend
 
 | Property | Value |
 |----------|-------|
-| **Build Context** | `./backend` |
-| **Base Image** | `python:3.12-slim` |
-| **Port** | 8000 |
-| **Volumes** | `./backend:/app` |
-| **Command** | `uvicorn main:app --host 0.0.0.0 --port 8000 --reload` |
-| **Environment** | Loaded from `.env` |
-| **Features** | Auto-reload, env var injection |
+| Base image | `python:3.12-slim` |
+| Port | 8000 |
+| Volumes | `./backend:/app`, `uploads` (named volume) |
+| Command | `uvicorn main:app --host 0.0.0.0 --port 8000 --reload` |
 
 ---
 
-## API Specification
+## API Endpoints
 
-### Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Root info |
+| `GET` | `/health` | Container health check |
+| `POST` | `/api/chat` | LLM streaming chat (SSE), multi-provider |
+| `POST` | `/api/tts` | Text-to-speech via edge-tts → `audio/mpeg` |
+| `POST` | `/api/upload/model` | Upload VRM/GLB/GLTF model → returns URL |
+| `GET` | `/api/ollama/models` | Proxy: list installed Ollama models |
+| `GET` | `/uploads/models/{file}` | Serve uploaded 3D model files |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Root info endpoint |
-| `GET` | `/health` | Health check for container verification |
-| `POST` | `/api/chat` | LLM chat communication (Phase 02) |
-| `GET` | `/api/profile` | User profile retrieval (Phase 02) |
-| `PUT` | `/api/profile` | User profile update (Phase 02) |
-| `GET` | `/api/settings` | Configuration retrieval (Phase 02) |
-| `PUT` | `/api/settings` | Configuration update (Phase 02) |
-
-### Health Check Response
+### `/api/chat` Request
 
 ```json
 {
-  "status": "ok"
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "context": { "userName": "Alex", "language": "en" },
+  "settings": {
+    "llmProvider": "ollama",
+    "baseUrl": "http://host.docker.internal:11434",
+    "modelName": "llama3.2:latest",
+    "apiKey": ""
+  }
 }
 ```
+
+Response: `text/event-stream` — `data: {"content": "..."}` chunks, terminated by `data: [DONE]`
+
+### `/api/tts` Request
+
+```json
+{ "text": "Hello!", "voice": "female", "language": "en-US" }
+```
+
+### `/api/ollama/models` Response
+
+```json
+{ "models": ["llama3.2:latest", "qwen2.5-coder:7b"] }
+```
+
+---
+
+## Key localStorage Keys (Frontend State)
+
+| Key | Type | Purpose |
+|-----|------|---------|
+| `avatarMode` | `'form' \| '2d' \| '3d'` | Active avatar type |
+| `avatar3DUrl` | `string` | Active VRM model URL |
+| `avatar3DScale` | `number` | Active model scale (synced from map) |
+| `avatar3DYOffset` | `number` | Active model Y offset (synced from map) |
+| `avatar3DModelSettings` | `Record<url, {scale, yOffset}>` | Per-model saved settings |
+| `avatar3DGallery` | `Array<{id, name, url}>` | 3D model gallery |
+| `avatarConfig` | `object` | Procedural form settings |
+| `mapa-llmProvider` | `string` | Selected LLM provider |
+| `mapa-modelName` | `string` | Selected model |
+| `mapa-apiKey` | `string` | API key (encrypted by browser) |
+| `mapa-baseUrl` | `string` | Provider base URL |
 
 ---
 
 ## Data Flow
 
-### Chat Request Flow
+### Chat with TTS and Avatar Lip-Sync
 
 ```
-User Input
+User types message
     │
     ▼
-Frontend (React)
+ChatInterface → POST /api/chat (SSE stream)
     │
     ▼
-POST /api/chat
+Backend → LLM provider (with fallback to Ollama)
     │
     ▼
-Backend (FastAPI)
+SSE chunks → ChatInterface displays streamed text
+    │
+    ▼ (on response complete, if autoRead enabled)
+ChatInterface → POST /api/tts → audio/mpeg blob
     │
     ▼
-LLM Provider (OpenRouter/Ollama)
+new Audio(blobUrl).play()
+window.dispatchEvent('vrm-audio-play', audio)
+    │
+    ├─► MiniAvatar (GLTFAvatar) → AudioContext → AnalyserNode
+    │       → useFrame: maxVolume → sine oscillation → vrm 'aa' expression
+    │
+    └─► AvatarStudio preview (same pipeline)
+```
+
+### VRM Auto-Fit Flow
+
+```
+User selects model from gallery
     │
     ▼
-Backend Response
+avatar3DUrl changes → AvatarStudio useEffect
     │
-    ▼
-Frontend Display
+    ├─ [saved settings exist] → restore scale/yOffset from avatar3DModelSettings
     │
-    ▼
-Avatar Animation (Phase 03)
+    └─ [new model] → GLTFAvatar loads VRM
+            │
+            ▼
+        onFitComputed callback fires:
+        - Box3.setFromObject(vrm.scene)
+        - head bone getWorldPosition
+        - fitScale = clamp(3.5 / boxHeight, 1, 6)
+        - fitYOffset = clamp(-headWorldY * fitScale, -8, 2)
+            │
+            ▼
+        AvatarStudio saves to avatar3DModelSettings[url]
+        Sets avatar3DScale + avatar3DYOffset
 ```
 
 ---
 
-## Security & Secrets
+## Security
 
 | Mechanism | Implementation |
 |-----------|----------------|
-| **Environment Variables** | `.env` file (gitignored) |
-| **Secret Injection** | `env_file` in docker-compose |
-| **API Keys** | `OPENROUTER_API_KEY` via environment |
-| **Network Isolation** | Internal `mapa-network` bridge |
+| Environment variables | `.env` file, gitignored |
+| Secret injection | `env_file` in docker-compose |
+| API keys | Never written to code; user-supplied via Settings or `.env` |
+| Network isolation | Internal `mapa-network` bridge |
+| CORS | Backend allows all origins (internal Docker network use) |
 
 ---
 
 ## Development Workflow
 
-### Local Development
-
 ```bash
 # Start all services
 docker compose up --build
 
-# Access services
-# Frontend: http://localhost:5173
-# Backend:  http://localhost:8000
-# Health:   http://localhost:8000/health
+# Restart single service after code changes
+docker compose restart backend
+
+# Install frontend package (Docker only — never on host)
+docker compose exec frontend npm install <pkg>
+
+# Install Python package (Docker only)
+docker compose exec backend pip install <pkg>
 ```
 
-### Hot-Reload Configuration
-
-| Service | Mechanism |
-|---------|-----------|
-| Frontend | Bind mount + Vite polling |
-| Backend | Bind mount + Uvicorn `--reload` |
-
----
-
-## Future Phases
-
-| Phase | Focus |
-|-------|-------|
-| **Phase 01** | Foundation & Scaffolding (Current) |
-| **Phase 02** | LLM Integration (OpenRouter/Ollama) |
-| **Phase 03** | 3D Avatar Integration (VRM) |
-| **Phase 04** | Voice & Motion Capture |
-| **Phase 05** | Memory & Personalization |
-
----
-
-## Design Principles
-
-1. **Modularity**: Small, focused components with clear interfaces
-2. **Token Efficiency**: Minimal, purposeful code and prompts
-3. **Docker-First**: All services containerized
-4. **Hot-Reload**: Fast iteration during development
-5. **Scope Awareness**: Read only relevant directories per task
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:8000 |
+| Health | http://localhost:8000/health |
