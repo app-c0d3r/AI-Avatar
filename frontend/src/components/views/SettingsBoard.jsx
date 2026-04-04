@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAvatar } from '@/context/AvatarContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -60,6 +60,9 @@ export default function SettingsBoard() {
   const [modelName, setModelName] = useLocalStorage('mapa-modelName', '')
   const [apiKey, setApiKey] = useLocalStorage('mapa-apiKey', '')
   const [baseUrl, setBaseUrl] = useLocalStorage('mapa-baseUrl', PROVIDER_DEFAULTS.openrouter.baseUrl)
+  const [ollamaModels, setOllamaModels] = useState([])
+  const [ollamaLoading, setOllamaLoading] = useState(false)
+  const [ollamaError, setOllamaError] = useState(null)
 
   // Reset model name when provider changes
   useEffect(() => {
@@ -67,10 +70,22 @@ export default function SettingsBoard() {
     setBaseUrl(PROVIDER_DEFAULTS[llmProvider].baseUrl)
   }, [llmProvider, setModelName, setBaseUrl])
 
+  // Fetch installed Ollama models whenever provider is ollama or baseUrl changes
+  useEffect(() => {
+    if (llmProvider !== 'ollama') return
+    setOllamaLoading(true)
+    setOllamaError(null)
+    fetch(`http://localhost:8000/api/ollama/models?base_url=${encodeURIComponent(baseUrl)}`)
+      .then(res => res.ok ? res.json() : Promise.reject(res.statusText))
+      .then(data => setOllamaModels(data.models.map(m => ({ value: m, label: m }))))
+      .catch(() => setOllamaError('Could not reach Ollama — is it running?'))
+      .finally(() => setOllamaLoading(false))
+  }, [llmProvider, baseUrl])
+
   const showApiKey = llmProvider !== 'ollama'
   const showBaseUrl = llmProvider === 'ollama'
   const showModelSelect = llmProvider !== 'openrouter'
-  const modelOptions = PROVIDER_DEFAULTS[llmProvider].models || []
+  const modelOptions = llmProvider === 'ollama' ? ollamaModels : (PROVIDER_DEFAULTS[llmProvider].models || [])
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -142,8 +157,11 @@ export default function SettingsBoard() {
                 <Select
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
+                  disabled={ollamaLoading}
                 >
-                  <SelectOption value="">Select a model...</SelectOption>
+                  <SelectOption value="">
+                    {ollamaLoading ? 'Loading models...' : 'Select a model...'}
+                  </SelectOption>
                   {modelOptions.map((model) => (
                     <SelectOption key={model.value} value={model.value}>
                       {model.label}
@@ -156,6 +174,9 @@ export default function SettingsBoard() {
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
                 />
+              )}
+              {ollamaError && (
+                <p className="text-xs text-destructive">{ollamaError}</p>
               )}
               <p className="text-xs text-muted-foreground">
                 {llmProvider === 'openrouter'

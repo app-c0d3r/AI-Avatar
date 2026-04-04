@@ -5,7 +5,8 @@ import edge_tts
 from typing import Optional, AsyncGenerator
 from dotenv import load_dotenv
 from pathlib import Path
-from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+import httpx
+from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -251,6 +252,22 @@ async def text_to_speech(request: TTSRequest):
     except Exception as e:
         logger.error("TTS error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ollama/models")
+async def ollama_models(base_url: str = Query(default=None)):
+    """Fetch installed Ollama models by proxying to /api/tags on the Ollama instance."""
+    url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")).rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{url}/api/tags")
+            response.raise_for_status()
+            data = response.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {"models": models}
+    except Exception as e:
+        logger.warning("Ollama model fetch failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"Cannot reach Ollama at {url}: {e}")
 
 
 @app.post("/api/upload/model")
